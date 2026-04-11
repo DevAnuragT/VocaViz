@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 import '../data/models/analysis_result.dart';
 import '../data/models/detection.dart';
 import '../data/models/repair_step.dart';
 import '../data/mock/mock_knowledge_base.dart';
+import '../../core/utils/logger.dart';
 
 /// Inference mode for the analysis service.
 enum InferenceMode {
@@ -152,12 +154,51 @@ If no fault is visible or confidence is low, set issue_type to "unknown".
   /// Parse JSON response from Gemma into AnalysisResult.
   AnalysisResult _parseJsonResponse(String jsonStr) {
     try {
-      // Simple JSON parsing - in production, use dart:convert
-      // This is a placeholder - actual implementation would use jsonDecode
-      return AnalysisResult.lowConfidence('Response parsing not yet implemented');
+      // Clean up markdown code blocks if present
+      String cleanJson = jsonStr;
+      if (jsonStr.startsWith('```json')) {
+        cleanJson = jsonStr.substring(7);
+        if (cleanJson.endsWith('```')) {
+          cleanJson = cleanJson.substring(0, cleanJson.length - 3);
+        }
+      } else if (jsonStr.startsWith('```')) {
+        cleanJson = jsonStr.substring(3);
+        if (cleanJson.endsWith('```')) {
+          cleanJson = cleanJson.substring(0, cleanJson.length - 3);
+        }
+      }
+      cleanJson = cleanJson.trim();
+
+      final json = jsonDecode(cleanJson) as Map<String, dynamic>;
+
+      return AnalysisResult(
+        machineType: json['machine_type'] as String? ?? 'belt_driven_water_pump',
+        issueType: json['issue_type'] as String? ?? 'unknown',
+        confidence: _parseConfidence(json['confidence']),
+        summary: json['summary'] as String? ?? 'Analysis complete',
+        detections: (json['detections'] as List?)
+            ?.map((d) => Detection.fromJson(d as Map<String, dynamic>))
+            .toList() ?? [],
+        repairSteps: (json['repair_steps'] as List?)
+            ?.map((s) => RepairStep.fromJson(s as Map<String, dynamic>))
+            .toList() ?? [],
+        stopConditions: List<String>.from(json['stop_conditions'] as List? ?? []),
+      );
     } catch (e) {
-      return AnalysisResult.lowConfidence('Failed to parse model response');
+      AppLogger.e('JSON parsing failed', 'InferenceService', e);
+      return AnalysisResult.lowConfidence('Failed to parse model response: ${e.toString()}');
     }
+  }
+
+  double _parseConfidence(dynamic value) {
+    if (value == null) return 0.5;
+    if (value is double) return value.clamp(0.0, 1.0);
+    if (value is int) return (value / 100.0).clamp(0.0, 1.0);
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      return parsed?.clamp(0.0, 1.0) ?? 0.5;
+    }
+    return 0.5;
   }
 
   /// Simple hash function for deterministic mock selection.

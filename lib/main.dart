@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/utils/logger.dart';
+import 'core/utils/env_config.dart';
 import 'app/app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment configuration
+  await EnvConfig.init();
 
   // Configure system UI
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -18,6 +22,7 @@ void main() async {
   AppLogger.setTag('VocaViz');
 
   AppLogger.i('VocaViz starting...');
+  AppLogger.i('Inference mode: ${EnvConfig.mode}');
 
   runApp(const VocaVizApp());
 }

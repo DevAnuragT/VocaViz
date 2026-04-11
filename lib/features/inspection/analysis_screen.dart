@@ -7,6 +7,7 @@ import '../../data/models/analysis_result.dart';
 import '../../data/models/detection.dart';
 import '../../services/inference_service.dart';
 import '../../core/utils/logger.dart';
+import '../../core/utils/env_config.dart';
 
 /// Screen that shows analysis in progress and displays results.
 class AnalysisScreen extends StatefulWidget {
@@ -49,8 +50,16 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         _error = null;
       });
 
-      // Always use mock mode for reliability during hackathon
-      _inferenceService.mode = InferenceMode.mock;
+      // Use remote mode if API key is available, otherwise fall back to mock
+      if (EnvConfig.isRemoteMode) {
+        _inferenceService.mode = InferenceMode.remote;
+        final apiKey = EnvConfig.apiKey!;
+        _inferenceService.configureRemote(apiKey);
+        AppLogger.i('Using remote Gemma inference', 'AnalysisScreen');
+      } else {
+        _inferenceService.mode = InferenceMode.mock;
+        AppLogger.i('Using mock inference (no API key or mode=mock)', 'AnalysisScreen');
+      }
 
       final result = await _inferenceService.analyze(
         imageBytes: widget.imageBytes,
@@ -174,7 +183,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Processing with ${InferenceMode.mock} inference...',
+              'Processing with ${EnvConfig.isRemoteMode ? 'Gemma AI' : 'mock'} inference...',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],

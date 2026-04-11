@@ -44,6 +44,9 @@ dependencies:
   # Local storage
   path_provider: ^2.1.4
 
+  # Environment variables for API keys
+  flutter_dotenv: ^5.1.0
+
   # Icons
   cupertino_icons: ^1.0.8
 
