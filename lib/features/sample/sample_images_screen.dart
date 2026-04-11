@@ -125,7 +125,7 @@ class _SampleCard extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 width: 64,
@@ -136,30 +136,34 @@ class _SampleCard extends StatelessWidget {
                 ),
                 child: Icon(icon, color: color, size: 32),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
                 title,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 description,
                 style: TextStyle(
                   color: Colors.grey[600],
-                  fontSize: 13,
+                  fontSize: 11,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 'Tap to analyze',
                 style: TextStyle(
                   color: color,
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
               ),

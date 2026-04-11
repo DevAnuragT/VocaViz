@@ -115,16 +115,21 @@ class InferenceService {
     try {
       // Construct the prompt for structured output
       final prompt = '''
-Analyze this image of a belt-driven water pump. Identify if there is a visible fault.
+You are an expert agricultural equipment inspector. Analyze this image for belt-driven water pump faults.
+
+IMPORTANT:
+- Only analyze if this is clearly a belt-driven water pump or similar machinery
+- If the image shows lamps, electronics, household items, or non-mechanical objects, return issue_type="unknown"
+- Look specifically for: belt condition, belt alignment, and belt tension
 
 Respond ONLY with valid JSON in this exact format:
 {
-  "machine_type": "belt_driven_water_pump",
+  "machine_type": "belt_driven_water_pump" or "unknown",
   "issue_type": "loose_belt|worn_belt|misaligned_belt|unknown",
   "confidence": 0.0-1.0,
-  "summary": "brief description",
+  "summary": "brief description of what you see and why you classified it this way",
   "detections": [
-    {"label": "belt|worn_area|etc", "x": 0.0-1.0, "y": 0.0-1.0, "width": 0.0-1.0, "height": 0.0-1.0, "severity": "low|medium|high"}
+    {"label": "belt|pulley|worn_area|sag_zone|misalignment_zone", "x": 0.0-1.0, "y": 0.0-1.0, "width": 0.0-1.0, "height": 0.0-1.0, "severity": "low|medium|high"}
   ],
   "repair_steps": [
     {"step": 1, "title": "...", "instruction": "...", "warning": null}
@@ -132,7 +137,13 @@ Respond ONLY with valid JSON in this exact format:
   "stop_conditions": ["condition 1", "condition 2"]
 }
 
-If no fault is visible or confidence is low, set issue_type to "unknown".
+Classification guide:
+- loose_belt: Visible sag/droop in the belt between pulleys
+- worn_belt: Cracks, fraying, glazing, or visible wear on belt surface
+- misaligned_belt: Belt running off-center or not tracking straight on pulleys
+- unknown: Not a belt-driven pump, image unclear, or no visible fault
+
+If confidence is below 0.6, set issue_type to "unknown".
 ''';
 
       final content = Content.multi([

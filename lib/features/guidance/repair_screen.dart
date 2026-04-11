@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../core/constants/app_constants.dart';
 import '../../data/models/analysis_result.dart';
+import '../../core/utils/logger.dart';
 
 /// Step-by-step repair guidance screen.
 class RepairScreen extends StatefulWidget {
@@ -20,11 +22,33 @@ class RepairScreen extends StatefulWidget {
 class _RepairScreenState extends State<RepairScreen> {
   int _currentStepIndex = 0;
   final List<bool> _completedSteps = [];
+  final FlutterTts _tts = FlutterTts();
+  bool _isSpeaking = false;
 
   @override
   void initState() {
     super.initState();
     _completedSteps.addAll(List.generate(widget.result.repairSteps.length, (_) => false));
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    await _tts.setLanguage('en-US');
+    await _tts.setSpeechRate(0.4); // Slower for clarity
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
+
+    _tts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() => _isSpeaking = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tts.dispose();
+    super.dispose();
   }
 
   void _nextStep() {
@@ -44,6 +68,21 @@ class _RepairScreenState extends State<RepairScreen> {
     }
   }
 
+
+  Future<void> _speakStep() async {
+    if (_isSpeaking) {
+      await _tts.stop();
+      setState(() => _isSpeaking = false);
+      return;
+    }
+
+    final step = widget.result.repairSteps[_currentStepIndex];
+    final text = '${step.title}. ${step.instruction}';
+
+    setState(() => _isSpeaking = true);
+    AppLogger.i('Speaking: $text', 'TTS');
+    await _tts.speak(text);
+  }
 
   void _completeRepair() {
     showDialog(
@@ -153,6 +192,20 @@ class _RepairScreenState extends State<RepairScreen> {
                   Text(
                     currentStep.instruction,
                     style: const TextStyle(fontSize: 18, height: 1.6),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Voice guidance button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _speakStep,
+                      icon: Icon(_isSpeaking ? Icons.stop : Icons.volume_up),
+                      label: Text(_isSpeaking ? 'Stop' : 'Read Aloud'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
 

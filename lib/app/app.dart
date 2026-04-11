@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import '../core/constants/app_constants.dart';
 import '../core/utils/logger.dart';
+import '../core/utils/preferences.dart';
 import '../data/models/analysis_result.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
@@ -21,9 +22,26 @@ class VocaVizApp extends StatefulWidget {
 
 class _VocaVizAppState extends State<VocaVizApp> {
   bool _hasCompletedOnboarding = false;
+  bool _isLoading = true;
 
   // Navigation state
   AppScreen _currentScreen = AppScreen.home;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final completed = await AppPreferences.hasCompletedOnboarding();
+    if (mounted) {
+      setState(() {
+        _hasCompletedOnboarding = completed;
+        _isLoading = false;
+      });
+    }
+  }
 
   // Image data passed between screens
   Uint8List? _capturedImage;
@@ -41,6 +59,7 @@ class _VocaVizAppState extends State<VocaVizApp> {
           seedColor: AppColors.primary,
           brightness: Brightness.light,
         ),
+        fontFamily: 'Roboto',
         useMaterial3: true,
         cardTheme: CardTheme(
           elevation: 2,
@@ -58,14 +77,19 @@ class _VocaVizAppState extends State<VocaVizApp> {
           ),
         ),
       ),
-      home: _buildCurrentScreen(),
+      home: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildCurrentScreen(),
     );
   }
 
   Widget _buildCurrentScreen() {
     if (!_hasCompletedOnboarding) {
       return OnboardingScreen(
-        onComplete: () => setState(() => _hasCompletedOnboarding = true),
+        onComplete: () async {
+          await AppPreferences.setOnboardingCompleted();
+          setState(() => _hasCompletedOnboarding = true);
+        },
       );
     }
 
@@ -74,9 +98,7 @@ class _VocaVizAppState extends State<VocaVizApp> {
         return HomeScreen(
           onInspectPressed: _navigateToCamera,
           onSampleImagesPressed: _navigateToSamples,
-          onHistoryPressed: () {
-            AppLogger.i('History not yet implemented', 'App');
-          },
+          onHistoryPressed: _navigateToHistory,
         );
 
       case AppScreen.camera:
@@ -136,6 +158,11 @@ class _VocaVizAppState extends State<VocaVizApp> {
 
   void _navigateToSamples() {
     _navigateTo(AppScreen.samples);
+  }
+
+  void _navigateToHistory() {
+    AppLogger.i('Navigate to history', 'App');
+    // TODO: Implement history screen
   }
 
   void _handleImageCaptured(Uint8List bytes, String source) {
