@@ -42,12 +42,39 @@ VocaViz is **app-native** by design:
 - Flutter SDK 3.7+
 - Android Studio / Xcode
 - Android device or emulator (camera-capable)
+- Google AI API key (for real Gemma inference)
 
-### Run the App
+### Setup
+
+1. **Clone and install dependencies:**
 ```bash
 cd vocaviz
 flutter pub get
+```
+
+2. **Configure API key (optional - for real Gemma):**
+```bash
+cp .env.example .env
+# Edit .env and add your API key from https://aistudio.google.com/app/apikey
+```
+
+3. **Run the app:**
+```bash
 flutter run
+```
+
+### Inference Modes
+
+| Mode | Setup | Use Case |
+|------|-------|----------|
+| **Mock** (default) | No setup needed | Demos, offline, testing |
+| **Remote** (Gemma API) | Add API key to `.env` | Real AI analysis |
+| **Local** (on-device) | Not yet implemented | Future offline AI |
+
+To enable real Gemma 4 inference, edit `.env`:
+```
+INFERENCE_MODE=remote
+GEMMA_API_KEY=your_actual_api_key_here
 ```
 
 ### Demo Mode
