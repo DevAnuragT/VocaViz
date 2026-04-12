@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/logger.dart';
 import '../core/utils/preferences.dart';
 import '../data/models/analysis_result.dart';
+import '../data/models/history_entry.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/inspection/camera_screen.dart';
@@ -11,6 +12,10 @@ import '../features/inspection/analysis_screen.dart';
 import '../features/guidance/repair_screen.dart';
 import '../features/summary/summary_screen.dart';
 import '../features/sample/sample_images_screen.dart';
+import '../features/analysis/safety_stop_screen.dart';
+import '../features/history/history_screen.dart';
+import '../data/mock/mock_knowledge_base.dart';
+import '../services/history_service.dart';
 
 /// Main app widget with navigation state management.
 class VocaVizApp extends StatefulWidget {
@@ -48,6 +53,7 @@ class _VocaVizAppState extends State<VocaVizApp> {
   String _imageSource = 'camera';
   String? _analysisScenario;
   AnalysisResult? _lastResult;
+  HistoryEntry? _currentHistoryEntry;
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +124,7 @@ class _VocaVizAppState extends State<VocaVizApp> {
           scenario: _analysisScenario,
           onBack: () => _navigateTo(AppScreen.home),
           onAnalysisComplete: _handleAnalysisComplete,
+          onStartRepair: _navigateToRepair,
         );
 
       case AppScreen.repair:
@@ -127,7 +134,7 @@ class _VocaVizAppState extends State<VocaVizApp> {
         }
         return RepairScreen(
           result: _lastResult!,
-          onComplete: () => _navigateTo(AppScreen.summary),
+          onComplete: _handleRepairComplete,
         );
 
       case AppScreen.summary:
@@ -141,9 +148,27 @@ class _VocaVizAppState extends State<VocaVizApp> {
           onNewInspection: _navigateToCamera,
         );
 
+      case AppScreen.safety:
+        if (_lastResult == null) {
+          _navigateTo(AppScreen.home);
+          return const SizedBox.shrink();
+        }
+        return SafetyStopScreen(
+          result: _lastResult!,
+          onHome: () => _navigateTo(AppScreen.home),
+          onRetry: _navigateToCamera,
+        );
+
       case AppScreen.samples:
         return SampleImagesScreen(
           onImageSelected: _handleSampleSelected,
+          onBack: () => _navigateTo(AppScreen.home),
+        );
+
+      case AppScreen.history:
+        return HistoryScreen(
+          onBack: () => _navigateTo(AppScreen.home),
+          onNewInspection: _navigateToCamera,
         );
     }
   }
@@ -161,8 +186,7 @@ class _VocaVizAppState extends State<VocaVizApp> {
   }
 
   void _navigateToHistory() {
-    AppLogger.i('Navigate to history', 'App');
-    // TODO: Implement history screen
+    _navigateTo(AppScreen.history);
   }
 
   void _handleImageCaptured(Uint8List bytes, String source) {
@@ -172,23 +196,52 @@ class _VocaVizAppState extends State<VocaVizApp> {
     _navigateTo(AppScreen.analysis);
   }
 
-  void _handleSampleSelected(String scenario) {
-    _navigateTo(AppScreen.samples);
-    // For demo, we'll use mock data directly in analysis screen
-    _analysisScenario = scenario;
-    _imageSource = 'sample';
+  Future<void> _handleSampleSelected(String scenario) async {
+    final assetPath = MockKnowledgeBase.sampleImages[scenario];
+    if (assetPath == null) {
+      AppLogger.w('Missing sample asset for scenario: $scenario', 'App');
+      return;
+    }
 
-    // Create a placeholder image (in real app, would load from assets)
-    // For now, analysis screen will use mock data based on scenario
-    _capturedImage = Uint8List(100); // Dummy data - mock service ignores this
-    _navigateTo(AppScreen.analysis);
+    try {
+      _analysisScenario = scenario;
+      _imageSource = 'sample';
+      _capturedImage = (await rootBundle.load(assetPath)).buffer.asUint8List();
+      _navigateTo(AppScreen.analysis);
+    } catch (error) {
+      AppLogger.e('Failed to load sample asset', 'App', error);
+    }
   }
 
   void _handleAnalysisComplete(AnalysisResult result) {
     _lastResult = result;
-    if (!result.isLowConfidence && !result.requiresTechnician) {
-      _navigateTo(AppScreen.repair);
+    // Create history entry when analysis completes
+    _currentHistoryEntry = HistoryEntry.fromAnalysisResult(
+      result,
+      imagePath: _imageSource == 'sample' ? null : 'captured',
+      completedRepair: false,
+    );
+    if (result.isLowConfidence || result.requiresTechnician) {
+      // Save immediately for safety-stop cases (no repair possible)
+      HistoryService.addEntry(_currentHistoryEntry!);
+      _navigateTo(AppScreen.safety);
     }
+    // For normal analyses, history is saved when repair completes
+    // or when user navigates away without repair
+  }
+
+  void _navigateToRepair() {
+    if (_lastResult == null) return;
+    _navigateTo(AppScreen.repair);
+  }
+
+  void _handleRepairComplete() {
+    // Mark the current history entry as completed
+    if (_currentHistoryEntry != null) {
+      _currentHistoryEntry = _currentHistoryEntry!.copyWith(completedRepair: true);
+      HistoryService.addEntry(_currentHistoryEntry!);
+    }
+    _navigateTo(AppScreen.summary);
   }
 }
 
@@ -196,7 +249,9 @@ enum AppScreen {
   home,
   camera,
   analysis,
+  safety,
   repair,
   summary,
   samples,
+  history,
 }
