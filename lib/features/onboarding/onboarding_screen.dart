@@ -145,41 +145,48 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildPage(_OnboardingPage page) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: page.color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              page.icon,
-              size: 60,
-              color: page.color,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: page.color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    page.icon,
+                    size: 60,
+                    color: page.color,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  page.title,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  page.description,
+                  style: const TextStyle(fontSize: 16, height: 1.5),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
-          Text(
-            page.title,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            page.description,
-            style: const TextStyle(fontSize: 16, height: 1.5),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

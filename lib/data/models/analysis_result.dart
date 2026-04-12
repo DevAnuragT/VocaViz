@@ -27,8 +27,8 @@ class AnalysisResult {
   /// Check if confidence is too low to proceed
   bool get isLowConfidence => confidence < 0.5;
 
-  /// Check if issue is unknown and requires technician
-  bool get requiresTechnician => issueType == 'unknown' || stopConditions.isNotEmpty;
+  /// Known issues can still include stop conditions without blocking repair.
+  bool get requiresTechnician => issueType == 'unknown' || repairSteps.isEmpty;
 
   /// Get the primary detection (first or highest severity)
   Detection? get primaryDetection {

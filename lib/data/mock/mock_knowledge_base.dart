@@ -22,9 +22,9 @@ class MockKnowledgeBase {
 
   /// Sample images for demo mode with their expected fault types.
   static const Map<String, String> sampleImages = {
-    'loose_belt': 'assets/images/sample_pumps/loose_belt.jpg',
-    'worn_belt': 'assets/images/sample_pumps/worn_belt.jpg',
-    'misaligned_belt': 'assets/images/sample_pumps/misaligned_belt.jpg',
+    'loose_belt': 'assets/images/sample_pumps/loose_belt_1.jpg',
+    'worn_belt': 'assets/images/sample_pumps/worn_belt_1.jpg',
+    'misaligned_belt': 'assets/images/sample_pumps/misaligned_belt_1.jpg',
   };
 
   // ─────────────────────────────────────────────────────────────────────────

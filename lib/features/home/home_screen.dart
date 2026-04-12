@@ -75,7 +75,7 @@ class HomeScreen extends StatelessWidget {
   Widget _buildMainActionCard(BuildContext context) {
     return Card(
       elevation: 4,
-      shadowColor: AppColors.primary.withOpacity(0.3),
+      shadowColor: AppColors.primary.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppConstants.defaultBorderRadius),
       ),
@@ -132,7 +132,7 @@ class HomeScreen extends StatelessWidget {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -239,7 +239,7 @@ class _SecondaryActionCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color),

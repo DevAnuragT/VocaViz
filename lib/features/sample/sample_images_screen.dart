@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
+import '../../data/mock/mock_knowledge_base.dart';
 
 /// Screen showing sample images for demo purposes.
 class SampleImagesScreen extends StatelessWidget {
   final Function(String scenario) onImageSelected;
+  final VoidCallback? onBack;
 
   const SampleImagesScreen({
     super.key,
     required this.onImageSelected,
+    this.onBack,
   });
 
   @override
@@ -15,6 +18,12 @@ class SampleImagesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sample Images'),
+        leading: onBack == null
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: onBack,
+              ),
       ),
       body: SafeArea(
         child: Column(
@@ -109,6 +118,8 @@ class _SampleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imagePath = MockKnowledgeBase.sampleImages[scenario];
+
     return Card(
       elevation: 2,
       child: InkWell(
@@ -118,7 +129,7 @@ class _SampleCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
-              colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+              colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.05)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -127,14 +138,38 @@ class _SampleCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 84,
+                  child: imagePath != null
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.asset(
+                              imagePath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _SamplePlaceholder(icon: icon, color: color);
+                              },
+                            ),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.18),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _SamplePlaceholder(icon: icon, color: color),
                 ),
-                child: Icon(icon, color: color, size: 32),
               ),
               const SizedBox(height: 12),
               Text(
@@ -171,6 +206,27 @@ class _SampleCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SamplePlaceholder extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+
+  const _SamplePlaceholder({
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: color, size: 32),
     );
   }
 }

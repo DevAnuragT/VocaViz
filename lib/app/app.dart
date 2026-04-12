@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/logger.dart';
 import '../core/utils/preferences.dart';
@@ -16,21 +17,19 @@ import '../features/analysis/safety_stop_screen.dart';
 import '../features/history/history_screen.dart';
 import '../data/mock/mock_knowledge_base.dart';
 import '../services/history_service.dart';
+import '../providers/app_state_provider.dart';
 
 /// Main app widget with navigation state management.
-class VocaVizApp extends StatefulWidget {
+class VocaVizApp extends ConsumerStatefulWidget {
   const VocaVizApp({super.key});
 
   @override
-  State<VocaVizApp> createState() => _VocaVizAppState();
+  ConsumerState<VocaVizApp> createState() => _VocaVizAppState();
 }
 
-class _VocaVizAppState extends State<VocaVizApp> {
+class _VocaVizAppState extends ConsumerState<VocaVizApp> {
   bool _hasCompletedOnboarding = false;
   bool _isLoading = true;
-
-  // Navigation state
-  AppScreen _currentScreen = AppScreen.home;
 
   @override
   void initState() {
@@ -47,13 +46,6 @@ class _VocaVizAppState extends State<VocaVizApp> {
       });
     }
   }
-
-  // Image data passed between screens
-  Uint8List? _capturedImage;
-  String _imageSource = 'camera';
-  String? _analysisScenario;
-  AnalysisResult? _lastResult;
-  HistoryEntry? _currentHistoryEntry;
 
   @override
   Widget build(BuildContext context) {
@@ -99,101 +91,84 @@ class _VocaVizAppState extends State<VocaVizApp> {
       );
     }
 
-    switch (_currentScreen) {
+    final appState = ref.watch(appStateProvider);
+    final appController = ref.read(appStateProvider.notifier);
+
+    switch (appState.currentScreen) {
       case AppScreen.home:
         return HomeScreen(
-          onInspectPressed: _navigateToCamera,
-          onSampleImagesPressed: _navigateToSamples,
-          onHistoryPressed: _navigateToHistory,
+          onInspectPressed: () => appController.navigateTo(AppScreen.camera),
+          onSampleImagesPressed: () => appController.navigateTo(AppScreen.samples),
+          onHistoryPressed: () => appController.navigateTo(AppScreen.history),
         );
 
       case AppScreen.camera:
         return CameraScreen(
-          onImageCaptured: _handleImageCaptured,
-          onCancel: () => _navigateTo(AppScreen.home),
+          onImageCaptured: (bytes, source) {
+            appController.setImage(bytes, source);
+            appController.navigateTo(AppScreen.analysis);
+          },
+          onCancel: () => appController.navigateTo(AppScreen.home),
         );
 
       case AppScreen.analysis:
-        if (_capturedImage == null) {
-          _navigateTo(AppScreen.home);
+        if (appState.capturedImage == null) {
+          appController.navigateTo(AppScreen.home);
           return const SizedBox.shrink();
         }
         return AnalysisScreen(
-          imageBytes: _capturedImage!,
-          source: _imageSource,
-          scenario: _analysisScenario,
-          onBack: () => _navigateTo(AppScreen.home),
-          onAnalysisComplete: _handleAnalysisComplete,
-          onStartRepair: _navigateToRepair,
+          imageBytes: appState.capturedImage!,
+          source: appState.imageSource,
+          scenario: appState.analysisScenario,
+          onBack: () => appController.navigateTo(AppScreen.home),
+          onAnalysisComplete: (result) => _handleAnalysisComplete(appController, appState.imageSource, result),
+          onStartRepair: () => appController.navigateTo(AppScreen.repair),
         );
 
       case AppScreen.repair:
-        if (_lastResult == null) {
-          _navigateTo(AppScreen.home);
+        if (appState.lastResult == null) {
+          appController.navigateTo(AppScreen.home);
           return const SizedBox.shrink();
         }
         return RepairScreen(
-          result: _lastResult!,
-          onComplete: _handleRepairComplete,
+          result: appState.lastResult!,
+          onComplete: () => _handleRepairComplete(appController, appState.currentHistoryEntry),
         );
 
       case AppScreen.summary:
-        if (_lastResult == null) {
-          _navigateTo(AppScreen.home);
+        if (appState.lastResult == null) {
+          appController.navigateTo(AppScreen.home);
           return const SizedBox.shrink();
         }
         return SummaryScreen(
-          result: _lastResult!,
-          onHome: () => _navigateTo(AppScreen.home),
-          onNewInspection: _navigateToCamera,
+          result: appState.lastResult!,
+          onHome: () => appController.navigateTo(AppScreen.home),
+          onNewInspection: () => appController.navigateTo(AppScreen.camera),
         );
 
       case AppScreen.safety:
-        if (_lastResult == null) {
-          _navigateTo(AppScreen.home);
+        if (appState.lastResult == null) {
+          appController.navigateTo(AppScreen.home);
           return const SizedBox.shrink();
         }
         return SafetyStopScreen(
-          result: _lastResult!,
-          onHome: () => _navigateTo(AppScreen.home),
-          onRetry: _navigateToCamera,
+          result: appState.lastResult!,
+          onHome: () => appController.navigateTo(AppScreen.home),
+          onRetry: () => appController.navigateTo(AppScreen.camera),
         );
 
       case AppScreen.samples:
         return SampleImagesScreen(
           onImageSelected: _handleSampleSelected,
-          onBack: () => _navigateTo(AppScreen.home),
+          onBack: () => appController.navigateTo(AppScreen.home),
         );
 
       case AppScreen.history:
         return HistoryScreen(
-          onBack: () => _navigateTo(AppScreen.home),
-          onNewInspection: _navigateToCamera,
+          onBack: () => appController.navigateTo(AppScreen.home),
+          onNewInspection: () => appController.navigateTo(AppScreen.camera),
         );
     }
-  }
-
-  void _navigateTo(AppScreen screen) {
-    setState(() => _currentScreen = screen);
-  }
-
-  void _navigateToCamera() {
-    _navigateTo(AppScreen.camera);
-  }
-
-  void _navigateToSamples() {
-    _navigateTo(AppScreen.samples);
-  }
-
-  void _navigateToHistory() {
-    _navigateTo(AppScreen.history);
-  }
-
-  void _handleImageCaptured(Uint8List bytes, String source) {
-    _capturedImage = bytes;
-    _imageSource = source;
-    _analysisScenario = null;
-    _navigateTo(AppScreen.analysis);
   }
 
   Future<void> _handleSampleSelected(String scenario) async {
@@ -204,54 +179,39 @@ class _VocaVizAppState extends State<VocaVizApp> {
     }
 
     try {
-      _analysisScenario = scenario;
-      _imageSource = 'sample';
-      _capturedImage = (await rootBundle.load(assetPath)).buffer.asUint8List();
-      _navigateTo(AppScreen.analysis);
+      final bytes = (await rootBundle.load(assetPath)).buffer.asUint8List();
+      ref.read(appStateProvider.notifier).setAnalysisScenario(scenario);
+      ref.read(appStateProvider.notifier).setImage(bytes, 'sample');
+      ref.read(appStateProvider.notifier).navigateTo(AppScreen.analysis);
     } catch (error) {
       AppLogger.e('Failed to load sample asset', 'App', error);
     }
   }
 
-  void _handleAnalysisComplete(AnalysisResult result) {
-    _lastResult = result;
+  void _handleAnalysisComplete(AppController controller, String imageSource, AnalysisResult result) {
+    controller.setResult(result);
     // Create history entry when analysis completes
-    _currentHistoryEntry = HistoryEntry.fromAnalysisResult(
+    final entry = HistoryEntry.fromAnalysisResult(
       result,
-      imagePath: _imageSource == 'sample' ? null : 'captured',
+      imagePath: imageSource == 'sample' ? null : 'captured',
       completedRepair: false,
     );
+    controller.setHistoryEntry(entry);
     if (result.isLowConfidence || result.requiresTechnician) {
       // Save immediately for safety-stop cases (no repair possible)
-      HistoryService.addEntry(_currentHistoryEntry!);
-      _navigateTo(AppScreen.safety);
+      HistoryService.addEntry(entry);
+      controller.navigateTo(AppScreen.safety);
     }
     // For normal analyses, history is saved when repair completes
-    // or when user navigates away without repair
   }
 
-  void _navigateToRepair() {
-    if (_lastResult == null) return;
-    _navigateTo(AppScreen.repair);
-  }
-
-  void _handleRepairComplete() {
+  void _handleRepairComplete(AppController controller, HistoryEntry? currentEntry) {
     // Mark the current history entry as completed
-    if (_currentHistoryEntry != null) {
-      _currentHistoryEntry = _currentHistoryEntry!.copyWith(completedRepair: true);
-      HistoryService.addEntry(_currentHistoryEntry!);
+    if (currentEntry != null) {
+      final updated = currentEntry.copyWith(completedRepair: true);
+      controller.updateHistoryEntry(updated);
+      HistoryService.addEntry(updated);
     }
-    _navigateTo(AppScreen.summary);
+    controller.navigateTo(AppScreen.summary);
   }
-}
-
-enum AppScreen {
-  home,
-  camera,
-  analysis,
-  safety,
-  repair,
-  summary,
-  samples,
-  history,
 }

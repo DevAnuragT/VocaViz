@@ -194,7 +194,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       icon: const Icon(Icons.close, color: Colors.white),
                       onPressed: widget.onCancel,
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.5),
+                        backgroundColor: Colors.black.withValues(alpha: 0.5),
                       ),
                     ),
                     const Expanded(
@@ -231,7 +231,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       icon: const Icon(Icons.photo_library, color: Colors.white, size: 32),
                       onPressed: _isProcessing ? null : _pickFromGallery,
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.5),
+                        backgroundColor: Colors.black.withValues(alpha: 0.5),
                         padding: const EdgeInsets.all(16),
                       ),
                     ),
@@ -278,7 +278,7 @@ class _CameraScreenState extends State<CameraScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(

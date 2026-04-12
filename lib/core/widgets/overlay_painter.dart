@@ -30,7 +30,7 @@ class OverlayPainter extends CustomPainter {
 
     // Draw filled rectangle with opacity
     final fillPaint = Paint()
-      ..color = baseColor.withOpacity(0.25)
+      ..color = baseColor.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill;
 
     // Draw border

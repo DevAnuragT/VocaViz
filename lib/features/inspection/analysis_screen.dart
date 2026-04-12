@@ -1,21 +1,22 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/loading_indicator.dart';
 import '../../core/widgets/overlay_painter.dart';
 import '../../data/models/analysis_result.dart';
 import '../../data/models/detection.dart';
-import '../../services/inference_service.dart';
-import '../../core/utils/logger.dart';
 import '../../core/utils/env_config.dart';
+import 'providers/analysis_controller.dart';
 
 /// Screen that shows analysis in progress and displays results.
-class AnalysisScreen extends StatefulWidget {
+class AnalysisScreen extends ConsumerStatefulWidget {
   final Uint8List imageBytes;
   final String source; // 'camera', 'gallery', 'sample'
   final String? scenario; // For mock mode - which fault to simulate
   final VoidCallback onBack;
   final Function(AnalysisResult result) onAnalysisComplete;
+  final VoidCallback onStartRepair;
 
   const AnalysisScreen({
     super.key,
@@ -24,80 +25,56 @@ class AnalysisScreen extends StatefulWidget {
     this.scenario,
     required this.onBack,
     required this.onAnalysisComplete,
+    required this.onStartRepair,
   });
 
   @override
-  State<AnalysisScreen> createState() => _AnalysisScreenState();
+  ConsumerState<AnalysisScreen> createState() => _AnalysisScreenState();
 }
 
-class _AnalysisScreenState extends State<AnalysisScreen> {
-  final InferenceService _inferenceService = InferenceService();
-
-  bool _isAnalyzing = true;
-  AnalysisResult? _result;
-  String? _error;
-
+class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
   @override
   void initState() {
     super.initState();
-    _runAnalysis();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runAnalysis();
+    });
   }
 
-  Future<void> _runAnalysis() async {
-    try {
-      setState(() {
-        _isAnalyzing = true;
-        _error = null;
-      });
+  @override
+  void didUpdateWidget(covariant AnalysisScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageBytes != widget.imageBytes || oldWidget.scenario != widget.scenario) {
+      _runAnalysis();
+    }
+  }
 
-      // Use remote mode if API key is available, otherwise fall back to mock
-      if (EnvConfig.isRemoteMode) {
-        _inferenceService.mode = InferenceMode.remote;
-        final apiKey = EnvConfig.apiKey!;
-        _inferenceService.configureRemote(apiKey);
-        AppLogger.i('Using remote Gemma inference', 'AnalysisScreen');
-      } else {
-        _inferenceService.mode = InferenceMode.mock;
-        AppLogger.i('Using mock inference (no API key or mode=mock)', 'AnalysisScreen');
-      }
-
-      final result = await _inferenceService.analyze(
+  void _runAnalysis() {
+    ref.read(analysisControllerProvider.notifier).analyze(
         imageBytes: widget.imageBytes,
         scenario: widget.scenario,
       );
-
-      if (!mounted) return;
-
-      setState(() {
-        _isAnalyzing = false;
-        _result = result;
-      });
-
-      // Notify parent of result
-      widget.onAnalysisComplete(result);
-    } catch (e) {
-      AppLogger.e('Analysis failed', 'AnalysisScreen', e);
-
-      if (!mounted) return;
-
-      setState(() {
-        _isAnalyzing = false;
-        _error = 'Analysis failed: ${e.toString()}';
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AnalysisState>(analysisControllerProvider, (previous, next) {
+      if (next.result != null && previous?.result != next.result) {
+        widget.onAnalysisComplete(next.result!);
+      }
+    });
+
+    final state = ref.watch(analysisControllerProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analysis'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _isAnalyzing ? null : widget.onBack,
+          onPressed: state.isAnalyzing ? null : widget.onBack,
         ),
         actions: [
-          if (!_isAnalyzing)
+          if (!state.isAnalyzing)
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _runAnalysis,
@@ -109,21 +86,21 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           // Image preview with overlay
           Expanded(
             flex: 2,
-            child: _buildImageSection(),
+            child: _buildImageSection(state),
           ),
 
           // Results section
           Expanded(
             flex: 3,
-            child: _buildResultsSection(),
+            child: _buildResultsSection(state),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildImageSection() {
-    if (_isAnalyzing) {
+  Widget _buildImageSection(AnalysisState state) {
+    if (state.isAnalyzing) {
       return Container(
         color: Colors.black,
         child: Center(
@@ -158,9 +135,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return Container(
       color: Colors.black,
       child: Center(
-        child: _result != null && _result!.detections.isNotEmpty
+        child: state.result != null && state.result!.detections.isNotEmpty
             ? DetectionOverlay(
-                detections: _result!.detections,
+                detections: state.result!.detections,
                 child: Image.memory(
                   widget.imageBytes,
                   fit: BoxFit.contain,
@@ -174,8 +151,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildResultsSection() {
-    if (_isAnalyzing) {
+  Widget _buildResultsSection(AnalysisState state) {
+    if (state.isAnalyzing) {
       return Container(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -191,18 +168,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       );
     }
 
-    if (_error != null) {
-      return _buildErrorState();
+    if (state.error != null) {
+      return _buildErrorState(state.error!);
     }
 
-    if (_result == null) {
+    if (state.result == null) {
       return const Center(child: Text('No result'));
     }
 
-    return _buildResultContent();
+    return _buildResultContent(state.result!);
   }
 
-  Widget _buildErrorState() {
+  Widget _buildErrorState(String error) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -216,7 +193,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _error!,
+            error,
             style: TextStyle(color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
@@ -231,9 +208,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildResultContent() {
-    final isLowConfidence = _result!.isLowConfidence;
-    final requiresTech = _result!.requiresTechnician;
+  Widget _buildResultContent(AnalysisResult result) {
+    final isLowConfidence = result.isLowConfidence;
+    final requiresTech = result.requiresTechnician;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -243,11 +220,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           // Confidence badge
           Row(
             children: [
-              _buildConfidenceBadge(_result!.confidence),
+              _buildConfidenceBadge(result.confidence),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _result!.issueType.replaceAll('_', ' ').toUpperCase(),
+                  result.issueType.replaceAll('_', ' ').toUpperCase(),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -260,19 +237,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
           // Summary
           Text(
-            _result!.summary,
+            result.summary,
             style: const TextStyle(fontSize: 16, height: 1.5),
           ),
           const SizedBox(height: 24),
 
           // Warning if low confidence or needs technician
           if (isLowConfidence || requiresTech) ...[
-            _buildWarningCard(),
+            _buildWarningCard(isLowConfidence),
             const SizedBox(height: 24),
           ],
 
           // Detections summary
-          if (_result!.detections.isNotEmpty) ...[
+          if (result.detections.isNotEmpty) ...[
             const Text(
               'Detected Regions',
               style: TextStyle(
@@ -281,7 +258,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            ..._result!.detections.map((d) => _buildDetectionChip(d)),
+            ...result.detections.map((d) => _buildDetectionChip(d)),
             const SizedBox(height: 24),
           ],
 
@@ -290,7 +267,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => widget.onAnalysisComplete(_result!),
+                onPressed: widget.onStartRepair,
                 icon: const Icon(Icons.build),
                 label: const Text('Start Repair Guide'),
                 style: ElevatedButton.styleFrom(
@@ -331,7 +308,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color, width: 1),
       ),
@@ -352,9 +329,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildWarningCard() {
+  Widget _buildWarningCard(bool isLowConfidence) {
     return Card(
-      color: AppColors.warning.withOpacity(0.1),
+      color: AppColors.warning.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -371,7 +348,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _result!.isLowConfidence
+                    isLowConfidence
                         ? 'Analysis confidence is low. Verify findings before proceeding.'
                         : 'This issue may require professional assistance.',
                     style: TextStyle(fontSize: 14, color: Colors.grey[700]),

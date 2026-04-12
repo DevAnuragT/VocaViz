@@ -1,9 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vocaviz/app/app.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('App loads and shows onboarding', (WidgetTester tester) async {
-    await tester.pumpWidget(const VocaVizApp());
+    await tester.pumpWidget(const ProviderScope(child: VocaVizApp()));
+    await tester.pumpAndSettle();
 
     // Verify onboarding screen appears
     expect(find.text('VocaViz'), findsOneWidget);
@@ -11,7 +18,8 @@ void main() {
   });
 
   testWidgets('Onboarding has Get Started button on last page', (WidgetTester tester) async {
-    await tester.pumpWidget(const VocaVizApp());
+    await tester.pumpWidget(const ProviderScope(child: VocaVizApp()));
+    await tester.pumpAndSettle();
 
     // Navigate through onboarding pages
     for (int i = 0; i < 3; i++) {

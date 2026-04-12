@@ -47,7 +47,7 @@ class _RepairScreenState extends State<RepairScreen> {
 
   @override
   void dispose() {
-    _tts.dispose();
+    _tts.stop();
     super.dispose();
   }
 
@@ -231,7 +231,7 @@ class _RepairScreenState extends State<RepairScreen> {
 
   Widget _buildWarningCard(String warning) {
     return Card(
-      color: AppColors.warning.withOpacity(0.15),
+      color: AppColors.warning.withValues(alpha: 0.15),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -266,7 +266,7 @@ class _RepairScreenState extends State<RepairScreen> {
 
   Widget _buildSafetyTips() {
     return Card(
-      color: AppColors.info.withOpacity(0.1),
+      color: AppColors.info.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -307,7 +307,7 @@ class _RepairScreenState extends State<RepairScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
