@@ -30,12 +30,13 @@ class AppState {
     HistoryEntry? currentHistoryEntry,
     bool clearImage = false,
     bool clearResult = false,
+    bool clearScenario = false,
   }) {
     return AppState(
       currentScreen: currentScreen ?? this.currentScreen,
       capturedImage: clearImage ? null : (capturedImage ?? this.capturedImage),
       imageSource: imageSource ?? this.imageSource,
-      analysisScenario: analysisScenario ?? this.analysisScenario,
+      analysisScenario: clearScenario ? null : (analysisScenario ?? this.analysisScenario),
       lastResult: clearResult ? null : (lastResult ?? this.lastResult),
       currentHistoryEntry: currentHistoryEntry ?? this.currentHistoryEntry,
     );
@@ -49,11 +50,15 @@ class AppController extends StateNotifier<AppState> {
     state = state.copyWith(currentScreen: screen);
   }
 
-  void setImage(Uint8List bytes, String source) {
+  void setImage(
+    Uint8List bytes,
+    String source, {
+    bool clearScenario = true,
+  }) {
     state = state.copyWith(
       capturedImage: bytes,
       imageSource: source,
-      analysisScenario: null,
+      clearScenario: clearScenario,
     );
   }
 

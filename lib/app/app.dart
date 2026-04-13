@@ -181,7 +181,11 @@ class _VocaVizAppState extends ConsumerState<VocaVizApp> {
     try {
       final bytes = (await rootBundle.load(assetPath)).buffer.asUint8List();
       ref.read(appStateProvider.notifier).setAnalysisScenario(scenario);
-      ref.read(appStateProvider.notifier).setImage(bytes, 'sample');
+      ref.read(appStateProvider.notifier).setImage(
+        bytes,
+        'sample',
+        clearScenario: false,
+      );
       ref.read(appStateProvider.notifier).navigateTo(AppScreen.analysis);
     } catch (error) {
       AppLogger.e('Failed to load sample asset', 'App', error);
