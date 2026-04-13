@@ -6,6 +6,21 @@ plugins {
 }
 
 android {
+    // Enable ML model binding for LiteRT-LM
+    bundle {
+        language {
+            // Split APKs by language for smaller downloads
+            enableSplit = true
+        }
+    }
+
+    // Increase method limit for LiteRT-LM
+    dexOptions {
+        javaMaxHeapSize = "4g"
+    }
+}
+
+android {
     namespace = "com.vocaviz.vocaviz"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
@@ -38,6 +53,12 @@ android {
         }
     }
 }
+
+// LiteRT-LM dependency for Gemma 4 on-device inference
+// Uncomment when model artifact is available:
+// dependencies {
+//     implementation("com.google.ai.edge.litert:litert-lm-android:1.0.0")
+// }
 
 flutter {
     source = "../.."
