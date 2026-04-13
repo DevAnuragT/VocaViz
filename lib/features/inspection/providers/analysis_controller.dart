@@ -9,17 +9,20 @@ class AnalysisState {
   final bool isAnalyzing;
   final AnalysisResult? result;
   final String? error;
+  final LocalModelStatus? localModelStatus;
 
   const AnalysisState({
     this.isAnalyzing = false,
     this.result,
     this.error,
+    this.localModelStatus,
   });
 
   AnalysisState copyWith({
     bool? isAnalyzing,
     AnalysisResult? result,
     String? error,
+    LocalModelStatus? localModelStatus,
     bool clearResult = false,
     bool clearError = false,
   }) {
@@ -27,6 +30,7 @@ class AnalysisState {
       isAnalyzing: isAnalyzing ?? this.isAnalyzing,
       result: clearResult ? null : (result ?? this.result),
       error: clearError ? null : (error ?? this.error),
+      localModelStatus: localModelStatus ?? this.localModelStatus,
     );
   }
 }
@@ -37,6 +41,13 @@ class AnalysisController extends StateNotifier<AnalysisState> {
   AnalysisController({InferenceService? inferenceService})
       : _inferenceService = inferenceService ?? InferenceService(),
         super(const AnalysisState());
+
+  /// Check local model availability and update state.
+  Future<LocalModelStatus> checkLocalModel() async {
+    final status = await _inferenceService.checkLocalModelAvailability();
+    state = state.copyWith(localModelStatus: status);
+    return status;
+  }
 
   Future<void> analyze({
     required Uint8List imageBytes,
@@ -49,14 +60,28 @@ class AnalysisController extends StateNotifier<AnalysisState> {
     );
 
     try {
+      // Select inference mode based on config
       if (EnvConfig.isRemoteMode) {
         _inferenceService.mode = InferenceMode.remote;
         final apiKey = EnvConfig.apiKey!;
-        _inferenceService.configureRemote(apiKey);
-        AppLogger.i('Using remote Gemma inference', 'AnalysisController');
+        _inferenceService.configureRemote(
+          apiKey,
+          modelName: EnvConfig.model,
+        );
+        AppLogger.i('Using remote Gemma inference (model: ${EnvConfig.model})', 'AnalysisController');
+      } else if (EnvConfig.isLocalMode) {
+        _inferenceService.mode = InferenceMode.local;
+        // Check and initialize local model
+        final status = await checkLocalModel();
+        if (status == LocalModelStatus.ready) {
+          await _inferenceService.initializeLocalModel();
+          AppLogger.i('Using local Gemma 4 inference', 'AnalysisController');
+        } else {
+          AppLogger.w('Local mode requested but model not ready (status: $status). Falling back to mock.', 'AnalysisController');
+        }
       } else {
         _inferenceService.mode = InferenceMode.mock;
-        AppLogger.i('Using mock inference (no API key or mode=mock)', 'AnalysisController');
+        AppLogger.i('Using mock inference (mode=${EnvConfig.mode})', 'AnalysisController');
       }
 
       final result = await _inferenceService.analyze(
@@ -68,6 +93,7 @@ class AnalysisController extends StateNotifier<AnalysisState> {
         isAnalyzing: false,
         result: result,
         clearError: true,
+        localModelStatus: _inferenceService.localModelStatus,
       );
     } catch (error) {
       AppLogger.e('Analysis failed', 'AnalysisController', error);

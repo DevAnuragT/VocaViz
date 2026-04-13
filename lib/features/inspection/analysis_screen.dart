@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/loading_indicator.dart';
 import '../../core/widgets/overlay_painter.dart';
+import '../../core/widgets/model_status_widget.dart';
 import '../../data/models/analysis_result.dart';
 import '../../data/models/detection.dart';
 import '../../core/utils/env_config.dart';
+import '../../services/inference_service.dart';
 import 'providers/analysis_controller.dart';
 
 /// Screen that shows analysis in progress and displays results.
@@ -56,6 +58,56 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
       );
   }
 
+  void _showModelStatusDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Model Status',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(),
+              ModelStatusWidget(
+                inferenceService: InferenceService(),
+                onModelReady: () {
+                  debugPrint('Model ready - can now use local mode');
+                },
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Current mode: ${EnvConfig.mode}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (EnvConfig.isRemoteMode)
+                Text(
+                  'Model: ${EnvConfig.model}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<AnalysisState>(analysisControllerProvider, (previous, next) {
@@ -79,6 +131,11 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
               icon: const Icon(Icons.refresh),
               onPressed: _runAnalysis,
             ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => _showModelStatusDialog(context),
+            tooltip: 'Model Status',
+          ),
         ],
       ),
       body: Column(
