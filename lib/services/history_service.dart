@@ -32,7 +32,10 @@ class HistoryService {
   static Future<void> addEntry(HistoryEntry entry) async {
     try {
       final history = await getHistory();
-      history.insert(0, entry);
+      history.add(entry);
+
+      // Always enforce newest-first ordering before trim/persist.
+      history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
       // Trim to max entries
       if (history.length > _maxHistoryEntries) {
@@ -54,6 +57,7 @@ class HistoryService {
 
       if (index != -1) {
         history[index] = updatedEntry;
+        history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
         await _saveHistory(history);
         AppLogger.i('Updated history entry: $id', 'HistoryService');
       }
@@ -70,6 +74,7 @@ class HistoryService {
 
       if (index != -1) {
         history[index] = history[index].copyWith(completedRepair: true);
+        history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
         await _saveHistory(history);
       }
     } catch (e) {
