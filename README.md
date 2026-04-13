@@ -68,13 +68,26 @@ flutter run
 | Mode | Setup | Use Case |
 |------|-------|----------|
 | **Mock** (default) | No setup needed | Demos, offline, testing |
-| **Remote** (Gemma API) | Add API key to `.env` | Real AI analysis |
-| **Local** (on-device) | Not yet implemented | Future offline AI |
+| **Remote** (Gemma API) | Add API key to `.env` | Real AI analysis via cloud |
+| **Local** (on-device Gemma 4) | Place model artifact in `assets/models/` | Offline AI, privacy-preserving |
 
-To enable real Gemma 4 inference, edit `.env`:
+### Enable Gemma 4 Remote Inference
+
+Edit `.env`:
 ```
 INFERENCE_MODE=remote
 GEMMA_API_KEY=your_actual_api_key_here
+GEMMA_MODEL=gemma-4-2b
+```
+
+### Enable Gemma 4 Local Inference
+
+1. Download Gemma 4 model artifact (see [GEMMA4_MODEL_SETUP.md](GEMMA4_MODEL_SETUP.md))
+2. Place at `assets/models/gemma-4-2b.task`
+3. Edit `.env`:
+```
+INFERENCE_MODE=local
+LOCAL_MODEL_PATH=assets/models/gemma-4-2b.task
 ```
 
 ### Demo Mode
@@ -114,13 +127,19 @@ The `InferenceService` supports three interchangeable modes:
 | Mode | Description | Use Case |
 |------|-------------|----------|
 | `mock` | Predefined results | Reliable demos, offline |
-| `local` | On-device Gemma | Future: offline AI |
-| `remote` | Google AI API | Future: cloud inference |
+| `local` | On-device Gemma 4 via LiteRT-LM | Offline AI, privacy-preserving |
+| `remote` | Google AI API (Gemma 4) | Cloud inference, highest accuracy |
 
 ```dart
 final service = InferenceService(mode: InferenceMode.mock);
 final result = await service.analyze(imageBytes: bytes);
 ```
+
+The service includes:
+- **Model availability checks** via `checkLocalModelAvailability()`
+- **Diagnostic states** via `LocalModelStatus` enum
+- **Graceful fallbacks** when model artifact unavailable
+- **Retry logic** for remote API failures (timeout, rate limits)
 
 ### Structured Output Schema
 
@@ -162,9 +181,8 @@ final result = await service.analyze(imageBytes: bytes);
 
 ## Current Limitations
 
-- [ ] Mock inference only (real Gemma integration pending)
+- [ ] Local Gemma 4 model artifact not yet bundled (scaffolding ready - see [GEMMA4_MODEL_SETUP.md](GEMMA4_MODEL_SETUP.md))
 - [ ] Single machine type (belt-driven pumps)
-- [ ] No persistent history
 - [ ] Sample images are placeholders
 
 ## Post-Hackathon Roadmap

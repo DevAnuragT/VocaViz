@@ -5,51 +5,81 @@
 ### 1. Real Gemma 4 Integration
 
 **Priority:** High  
-**Effort:** Medium
+**Effort:** Medium  
+**Status:** Scaffolding complete - needs model artifact
 
-Replace mock inference with actual Gemma 4 calls:
+The inference architecture now supports Gemma 4 via three modes:
+- `mock` - Demo reliability (default)
+- `remote` - Google AI API with Gemma 4
+- `local` - On-device Gemma 4 via LiteRT-LM
+
+**What's done:**
+- [x] `InferenceMode` enum with all three modes
+- [x] `LocalModelStatus` diagnostics enum
+- [x] `checkLocalModelAvailability()` method
+- [x] `initializeLocalModel()` scaffolding
+- [x] Graceful fallback to mock when model unavailable
+- [x] Environment config for model selection
+- [x] Documentation in [GEMMA4_MODEL_SETUP.md](GEMMA4_MODEL_SETUP.md)
+
+**What's needed:**
+- [ ] Place Gemma 4 `.task` or `.tflite` model at `assets/models/gemma-4-2b.task`
+- [ ] Add LiteRT-LM dependency to `android/app/build.gradle.kts`
+- [ ] Implement actual model loading in `InferenceService.initializeLocalModel()`
+- [ ] Add tokenizer integration (SentencePiece)
+- [ ] Test on physical Android device with NPU
 
 ```dart
-// TODO: Implement real Gemma 4 multimodal inference
-// - Use gemma-3-multimodal or gemma-2-2b
-// - Add API key management (secure storage)
-// - Handle rate limiting and quotas
-// - Implement response streaming for better UX
+// Remote mode (ready to use):
+INFERENCE_MODE=remote
+GEMMA_API_KEY=your_key
+GEMMA_MODEL=gemma-4-2b
 
-final model = GenerativeModel(
-  model: 'gemma-3-multimodal',
-  apiKey: apiKey,
-);
+// Local mode (needs model artifact):
+INFERENCE_MODE=local
+LOCAL_MODEL_PATH=assets/models/gemma-4-2b.task
 ```
 
-**Files to modify:**
-- `lib/services/inference_service.dart` - Remote mode implementation
-- `lib/core/utils/secure_storage.dart` - API key management (new)
+**Files modified:**
+- `lib/services/inference_service.dart` - Full scaffolding with diagnostics
+- `lib/core/utils/env_config.dart` - Gemma 4 defaults, local mode support
+- `lib/features/inspection/providers/analysis_controller.dart` - Mode selection logic
 
 ---
 
-### 2. On-Device Inference
+### 2. On-Device Inference (LiteRT-LM)
 
 **Priority:** High (for offline story)  
-**Effort:** High
+**Effort:** High  
+**Status:** Scaffolding complete - needs LiteRT-LM integration
 
-Run Gemma 2B locally using TFLite or MediaPipe:
+See [GEMMA4_MODEL_SETUP.md](GEMMA4_MODEL_SETUP.md) for detailed setup instructions.
 
-```dart
-// TODO: Add on-device Gemma 2B inference
-// - Convert Gemma to TFLite format
-// - Add quantization for mobile performance
-// - Implement streaming generation
-// - Handle memory constraints
-
-// Dependencies to add:
-// - tflite_flutter: ^0.11.0
-// - mediapipe_tasks_vision (if using MediaPipe)
+**What's needed:**
+```kotlin
+// In android/app/build.gradle.kts:
+dependencies {
+    implementation("com.google.ai.edge.litert:litert-lm-android:1.0.0")
+}
 ```
 
-**Files to modify:**
-- `lib/services/inference_service.dart` - Local mode implementation
-- `pubspec.yaml` - Add TFLite dependencies
+**Implementation TODOs in `inference_service.dart`:**
+```dart
+// 1. Load model via LiteRT-LM
+// 2. Initialize tokenizer (SentencePiece)
+// 3. Convert image to model input format (resize, normalize)
+// 4. Run inference: model.generateResponse(prompt + image)
+// 5. Parse JSON response with existing _parseJsonResponse()
+// 6. Handle streaming responses for better UX
+```
+
+**Dependencies to add:**
+```yaml
+# pubspec.yaml
+dependencies:
+  # Consider for LiteRT-LM Flutter bindings (if available)
+  # litert_flutter: ^1.0.0  # Check pub.dev for availability
+```
 
 ---
 
