@@ -1,38 +1,81 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../data/models/analysis_result.dart';
 import '../data/models/detection.dart';
 import '../data/models/repair_step.dart';
 import '../data/mock/mock_knowledge_base.dart';
 import '../../core/utils/logger.dart';
+import '../../core/utils/env_config.dart';
 
 /// Inference mode for the analysis service.
 enum InferenceMode {
   /// Uses mock/predefined results - reliable for demos
   mock,
 
-  /// Uses local Gemma model (on-device) - offline capable
+  /// Uses local Gemma 4 model (on-device via LiteRT-LM) - offline capable
+  /// Requires Gemma 4 model artifact in .task or .tflite format
   local,
 
   /// Uses Google AI API - requires network and API key
   remote,
 }
 
+/// Status of the local Gemma 4 model.
+enum LocalModelStatus {
+  /// Model not yet initialized
+  notInitialized,
+
+  /// Model is loading
+  loading,
+
+  /// Model loaded and ready for inference
+  ready,
+
+  /// Model artifact not found
+  artifactMissing,
+
+  /// Model artifact found but incompatible format
+  artifactIncompatible,
+
+  /// Model loaded but device lacks required resources (RAM/NPU)
+  deviceInsufficient,
+
+  /// Inference engine failed to initialize
+  initFailed,
+}
+
 /// Service responsible for analyzing images and returning structured results.
 /// Supports multiple interchangeable modes for flexibility.
 class InferenceService {
+  static const Duration _remoteTimeout = Duration(seconds: 20);
+  static const int _maxRemoteRetries = 2;
+
+  /// Path to the local Gemma 4 model artifact.
+  /// Expected format: .task (LiteRT-LM) or .tflite
+  static const String _localModelAssetPath = 'assets/models/gemma-4-2b.task';
+
   InferenceMode _mode;
   GenerativeModel? _model;
+  LocalModelStatus _localModelStatus = LocalModelStatus.notInitialized;
+  Object? _localModelError;
 
   InferenceService({InferenceMode mode = InferenceMode.mock})
       : _mode = mode;
 
   /// Get current inference mode
   InferenceMode get mode => _mode;
+
+  /// Get the local model status
+  LocalModelStatus get localModelStatus => _localModelStatus;
+
+  /// Get the local model error if any
+  Object? get localModelError => _localModelError;
 
   /// Set the inference mode
   set mode(InferenceMode value) {
@@ -43,12 +86,121 @@ class InferenceService {
   }
 
   /// Configure for remote API usage
-  void configureRemote(String apiKey) {
+  void configureRemote(String apiKey, {String modelName = 'gemma-2-2b'}) {
     _model = GenerativeModel(
-      model: 'gemma-2-2b',
+      model: modelName,
       apiKey: apiKey,
     );
     _mode = InferenceMode.remote;
+  }
+
+  /// Check if local Gemma 4 model is available and ready.
+  /// Call this before switching to local mode.
+  Future<LocalModelStatus> checkLocalModelAvailability() async {
+    _localModelStatus = LocalModelStatus.loading;
+
+    try {
+      // TODO: Implement actual LiteRT-LM model loading check
+      // This will verify:
+      // 1. Model artifact exists at expected path
+      // 2. Model format is compatible (.task or .tflite)
+      // 3. Device has sufficient RAM
+      // 4. NPU acceleration available (optional but recommended)
+
+      // Placeholder: Check if model asset exists
+      final modelExists = await _checkModelAssetExists();
+      if (!modelExists) {
+        _localModelStatus = LocalModelStatus.artifactMissing;
+        _localModelError = 'Gemma 4 model artifact not found at $_localModelAssetPath';
+        return _localModelStatus;
+      }
+
+      // TODO: Add format validation and resource checks
+      _localModelStatus = LocalModelStatus.ready;
+      return _localModelStatus;
+    } catch (e) {
+      _localModelStatus = LocalModelStatus.initFailed;
+      _localModelError = e;
+      return _localModelStatus;
+    }
+  }
+
+  /// Check if model asset file exists.
+  Future<bool> _checkModelAssetExists() async {
+    final modelPath = EnvConfig.localModelPath;
+
+    try {
+      // Try to load the model from assets
+      // First, try to load via AssetBundle to verify it exists
+      await rootBundle.load(modelPath);
+
+      return true;
+    } catch (e) {
+      // Asset not found or failed to load
+      if (e.toString().contains('Unable to load asset')) {
+        AppLogger.w('Model asset not found at $modelPath', 'InferenceService');
+      } else {
+        AppLogger.e('Error checking model asset', 'InferenceService', e);
+      }
+      return false;
+    }
+  }
+
+  /// Initialize the local Gemma 4 model.
+  /// Call after verifying availability.
+  Future<bool> initializeLocalModel() async {
+    if (_localModelStatus != LocalModelStatus.ready) {
+      final status = await checkLocalModelAvailability();
+      if (status != LocalModelStatus.ready) {
+        return false;
+      }
+    }
+
+    try {
+      // Copy model from assets to writable directory for LiteRT-LM
+      final modelPath = await _copyModelToCache();
+
+      // TODO: When LiteRT-LM Flutter bindings are available, initialize here:
+      // _liteRtModel = await LiteRtLm.load(model: modelPath);
+
+      // For now, mark as ready (model file is available)
+      _localModelStatus = LocalModelStatus.ready;
+      AppLogger.i('Local model initialized at: $modelPath', 'InferenceService');
+      return true;
+    } catch (e) {
+      _localModelStatus = LocalModelStatus.initFailed;
+      _localModelError = e;
+      AppLogger.e('Failed to initialize local model', 'InferenceService', e);
+      return false;
+    }
+  }
+
+  /// Copy model from assets to app's cache directory.
+  /// LiteRT-LM requires file path access, not asset bundle.
+  Future<String> _copyModelToCache() async {
+    final modelPath = EnvConfig.localModelPath;
+
+    // Get cache directory
+    final cacheDir = await getTemporaryDirectory();
+    final modelCachePath = '${cacheDir.path}/models/$modelPath';
+    final modelFile = File(modelCachePath);
+
+    // Check if already cached
+    if (await modelFile.exists()) {
+      AppLogger.i('Model already cached at: $modelCachePath', 'InferenceService');
+      return modelCachePath;
+    }
+
+    // Create directory
+    await modelFile.parent.create(recursive: true);
+
+    // Read from assets and write to cache
+    final byteData = await rootBundle.load(modelPath);
+    final bytes = byteData.buffer.asUint8List();
+    await modelFile.writeAsBytes(bytes);
+
+    AppLogger.i('Model cached at: $modelCachePath (${bytes.length} bytes)', 'InferenceService');
+    return modelCachePath;
   }
 
   /// Analyze an image and return structured results.
@@ -88,22 +240,66 @@ class InferenceService {
     return MockKnowledgeBase.getMockResult(selectedScenario);
   }
 
-  /// Local inference using on-device Gemma.
-  /// Currently falls back to mock - implement when on-device Gemma is available.
+  /// Local inference using on-device Gemma 4 via LiteRT-LM.
+  /// Requires model artifact to be placed in assets/models/
   Future<AnalysisResult> _analyzeLocal(Uint8List imageBytes) async {
-    try {
-      // TODO: Implement actual on-device Gemma inference
-      // This would use Gemma 2B or 7B running locally via TFLite or similar
-
-      // For now, fall back to mock with a note
-      final result = await _analyzeMock(imageBytes, null);
-      return result.copyWith(
-        summary: '${result.summary} (Local inference - demo mode)',
-      );
-    } catch (e) {
-      // On failure, return mock result
-      return _analyzeMock(imageBytes, null);
+    // Check model status before attempting inference
+    if (_localModelStatus == LocalModelStatus.notInitialized) {
+      await checkLocalModelAvailability();
     }
+
+    // If model not ready, provide detailed diagnostic and fall back
+    if (_localModelStatus != LocalModelStatus.ready) {
+      return _analyzeLocalWithFallback(imageBytes);
+    }
+
+    try {
+      // TODO: Implement actual LiteRT-LM inference
+      // Expected flow:
+      // 1. Convert image to model input format (resize, normalize)
+      // 2. Run inference: model.generateResponse(prompt + image)
+      // 3. Parse JSON response with same _parseJsonResponse()
+      // 4. Return structured AnalysisResult
+
+      // Placeholder until model artifact provided
+      return _analyzeLocalWithFallback(imageBytes);
+    } catch (e) {
+      AppLogger.e('Local Gemma 4 inference failed', 'InferenceService', e);
+      _localModelStatus = LocalModelStatus.initFailed;
+      _localModelError = e;
+      return _analyzeLocalWithFallback(imageBytes);
+    }
+  }
+
+  /// Fall back to mock inference when local model unavailable.
+  /// Adds diagnostic info about why local mode failed.
+  Future<AnalysisResult> _analyzeLocalWithFallback(Uint8List imageBytes) async {
+    String diagnosticNote;
+
+    switch (_localModelStatus) {
+      case LocalModelStatus.artifactMissing:
+        diagnosticNote = 'Local Gemma 4 model not installed. See GEMMA4_MODEL_SETUP.md';
+        break;
+      case LocalModelStatus.artifactIncompatible:
+        diagnosticNote = 'Model format incompatible. Expected .task or .tflite format';
+        break;
+      case LocalModelStatus.deviceInsufficient:
+        diagnosticNote = 'Device lacks resources for local inference';
+        break;
+      case LocalModelStatus.initFailed:
+        diagnosticNote = 'Local model init failed: $_localModelError';
+        break;
+      case LocalModelStatus.loading:
+        diagnosticNote = 'Model still loading, using mock';
+        break;
+      default:
+        diagnosticNote = 'Local inference unavailable';
+    }
+
+    final result = await _analyzeMock(imageBytes, null);
+    return result.copyWith(
+      summary: '${result.summary} ($diagnosticNote)',
+    );
   }
 
   /// Remote inference using Google AI API.
@@ -112,9 +308,40 @@ class InferenceService {
       throw StateError('Remote mode requires API key. Call configureRemote() first.');
     }
 
-    try {
-      // Construct the prompt for structured output
-      final prompt = '''
+    final content = Content.multi([
+      TextPart(_buildPrompt()),
+      DataPart('image/jpeg', imageBytes),
+    ]);
+
+    for (int attempt = 0; attempt <= _maxRemoteRetries; attempt++) {
+      try {
+        final response = await _model!
+            .generateContent([content])
+            .timeout(_remoteTimeout);
+
+        final modelText = response.text?.trim() ?? '';
+        if (modelText.isEmpty) {
+          throw const FormatException('Model returned empty response.');
+        }
+
+        final parsed = _parseJsonResponse(modelText);
+        return _normalizeResult(parsed);
+      } catch (error) {
+        final shouldRetry = attempt < _maxRemoteRetries && _isRetryableRemoteError(error);
+        if (shouldRetry) {
+          await Future.delayed(_retryDelayForAttempt(attempt));
+          continue;
+        }
+
+        return _remoteFailureResult(error);
+      }
+    }
+
+    return AnalysisResult.lowConfidence('Remote analysis failed after retries.');
+  }
+
+  String _buildPrompt() {
+    return '''
 You are an expert agricultural equipment inspector. Analyze this image for belt-driven water pump faults.
 
 IMPORTANT:
@@ -144,61 +371,191 @@ Classification guide:
 - unknown: Not a belt-driven pump, image unclear, or no visible fault
 
 If confidence is below 0.6, set issue_type to "unknown".
+Output consistency examples:
+Example A:
+{"machine_type":"belt_driven_water_pump","issue_type":"loose_belt","confidence":0.86,"summary":"Belt sag is visible between pulleys.","detections":[{"label":"sag_zone","x":0.34,"y":0.46,"width":0.22,"height":0.12,"severity":"high"}],"repair_steps":[{"step":1,"title":"Turn off power","instruction":"Disconnect and verify motor cannot start.","warning":"Lock out if possible."}],"stop_conditions":["If belt is frayed, replace belt before restarting."]}
+
+Example B:
+{"machine_type":"unknown","issue_type":"unknown","confidence":0.42,"summary":"Image does not show a supported belt-driven water pump.","detections":[],"repair_steps":[],"stop_conditions":["Retake photo with full belt and pulley view.","If uncertain, contact a technician."]}
 ''';
+  }
 
-      final content = Content.multi([
-        TextPart(prompt),
-        DataPart('image/jpeg', imageBytes),
-      ]);
+  Duration _retryDelayForAttempt(int attempt) {
+    const backoff = [
+      Duration(milliseconds: 600),
+      Duration(milliseconds: 1500),
+    ];
+    return backoff[min(attempt, backoff.length - 1)];
+  }
 
-      final response = await _model!.generateContent([content]);
+  bool _isRetryableRemoteError(Object error) {
+    if (error is TimeoutException) return true;
 
-      // Parse the JSON response
-      final jsonStr = response.text?.trim() ?? '';
-      return _parseJsonResponse(jsonStr);
-    } catch (e) {
-      // On API failure, return low confidence result
-      return AnalysisResult.lowConfidence('Remote analysis failed: ${e.toString()}');
+    final text = error.toString().toLowerCase();
+    return text.contains('429') ||
+        text.contains('rate limit') ||
+        text.contains('quota') ||
+        text.contains('resource exhausted') ||
+        text.contains('temporarily unavailable') ||
+        text.contains('socket') ||
+        text.contains('connection') ||
+        text.contains('deadline');
+  }
+
+  AnalysisResult _remoteFailureResult(Object error) {
+    final message = error.toString().toLowerCase();
+
+    if (error is TimeoutException) {
+      return AnalysisResult.lowConfidence('Remote analysis timed out. Please retry.');
     }
+
+    if (message.contains('429') || message.contains('rate limit') || message.contains('quota')) {
+      return AnalysisResult.lowConfidence('Remote service is rate-limited. Please retry shortly.');
+    }
+
+    if (message.contains('socket') || message.contains('connection') || message.contains('network')) {
+      return AnalysisResult.lowConfidence('Network issue during remote analysis. Check connectivity and retry.');
+    }
+
+    return AnalysisResult.lowConfidence('Remote analysis failed. Please retry with a clearer image.');
+  }
+
+  AnalysisResult _normalizeResult(AnalysisResult result) {
+    var normalized = result;
+
+    final validMachineType = normalized.machineType == 'belt_driven_water_pump' ||
+        normalized.machineType == 'unknown';
+    if (!validMachineType) {
+      normalized = normalized.copyWith(machineType: 'unknown', issueType: 'unknown');
+    }
+
+    if (normalized.confidence < 0.6 && normalized.issueType != 'unknown') {
+      normalized = normalized.copyWith(issueType: 'unknown');
+    }
+
+    if (normalized.issueType == 'unknown') {
+      return normalized.copyWith(
+        repairSteps: [],
+      );
+    }
+
+    // If remote missed steps for a known issue, fall back to local knowledge.
+    if (normalized.repairSteps.isEmpty) {
+      final fallback = MockKnowledgeBase.getMockResult(normalized.issueType);
+      normalized = normalized.copyWith(
+        repairSteps: fallback.repairSteps,
+        stopConditions: normalized.stopConditions.isEmpty
+            ? fallback.stopConditions
+            : normalized.stopConditions,
+      );
+    }
+
+    return normalized;
   }
 
   /// Parse JSON response from Gemma into AnalysisResult.
   AnalysisResult _parseJsonResponse(String jsonStr) {
     try {
-      // Clean up markdown code blocks if present
-      String cleanJson = jsonStr;
-      if (jsonStr.startsWith('```json')) {
-        cleanJson = jsonStr.substring(7);
-        if (cleanJson.endsWith('```')) {
-          cleanJson = cleanJson.substring(0, cleanJson.length - 3);
-        }
-      } else if (jsonStr.startsWith('```')) {
-        cleanJson = jsonStr.substring(3);
-        if (cleanJson.endsWith('```')) {
-          cleanJson = cleanJson.substring(0, cleanJson.length - 3);
-        }
-      }
-      cleanJson = cleanJson.trim();
+      final json = _decodeBestEffortJsonObject(jsonStr);
+      final machineType = _parseMachineType(json['machine_type']);
+      final issueType = _parseIssueType(json['issue_type']);
+      final confidence = _parseConfidence(json['confidence']);
+      final summary = (json['summary'] as String?)?.trim().isNotEmpty == true
+          ? (json['summary'] as String).trim()
+          : 'Analysis complete';
 
-      final json = jsonDecode(cleanJson) as Map<String, dynamic>;
+      final detections = _parseDetections(json['detections']);
+      final repairSteps = _parseRepairSteps(json['repair_steps']);
+      final stopConditions = _parseStopConditions(json['stop_conditions']);
 
       return AnalysisResult(
-        machineType: json['machine_type'] as String? ?? 'belt_driven_water_pump',
-        issueType: json['issue_type'] as String? ?? 'unknown',
-        confidence: _parseConfidence(json['confidence']),
-        summary: json['summary'] as String? ?? 'Analysis complete',
-        detections: (json['detections'] as List?)
-            ?.map((d) => Detection.fromJson(d as Map<String, dynamic>))
-            .toList() ?? [],
-        repairSteps: (json['repair_steps'] as List?)
-            ?.map((s) => RepairStep.fromJson(s as Map<String, dynamic>))
-            .toList() ?? [],
-        stopConditions: List<String>.from(json['stop_conditions'] as List? ?? []),
+        machineType: machineType,
+        issueType: issueType,
+        confidence: confidence,
+        summary: summary,
+        detections: detections,
+        repairSteps: repairSteps,
+        stopConditions: stopConditions,
       );
     } catch (e) {
       AppLogger.e('JSON parsing failed', 'InferenceService', e);
       return AnalysisResult.lowConfidence('Failed to parse model response: ${e.toString()}');
     }
+  }
+
+  Map<String, dynamic> _decodeBestEffortJsonObject(String rawText) {
+    final candidates = _jsonCandidates(rawText);
+    for (final candidate in candidates) {
+      final sanitized = _sanitizeJson(candidate);
+      try {
+        final decoded = jsonDecode(sanitized);
+        if (decoded is Map<String, dynamic>) return decoded;
+      } catch (_) {
+        // Try next candidate.
+      }
+    }
+    throw const FormatException('No valid JSON object found in model response.');
+  }
+
+  List<String> _jsonCandidates(String rawText) {
+    final trimmed = rawText.trim();
+    final strippedFences = trimmed
+        .replaceAll(RegExp(r'^```json\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'^```\s*'), '')
+        .replaceAll(RegExp(r'\s*```$'), '')
+        .trim();
+
+    final firstBrace = strippedFences.indexOf('{');
+    final lastBrace = strippedFences.lastIndexOf('}');
+    final extractedObject = (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace)
+        ? strippedFences.substring(firstBrace, lastBrace + 1)
+        : strippedFences;
+
+    return [trimmed, strippedFences, extractedObject];
+  }
+
+  String _sanitizeJson(String jsonLike) {
+    return jsonLike.replaceAll(RegExp(r',\s*([}\]])'), r'$1').trim();
+  }
+
+  String _parseMachineType(dynamic value) {
+    final parsed = (value as String?)?.trim() ?? 'unknown';
+    if (parsed == 'belt_driven_water_pump' || parsed == 'unknown') {
+      return parsed;
+    }
+    return 'unknown';
+  }
+
+  String _parseIssueType(dynamic value) {
+    const valid = {
+      'loose_belt',
+      'worn_belt',
+      'misaligned_belt',
+      'unknown',
+    };
+    final parsed = (value as String?)?.trim() ?? 'unknown';
+    return valid.contains(parsed) ? parsed : 'unknown';
+  }
+
+  List<Detection> _parseDetections(dynamic value) {
+    if (value is! List) return [];
+    return value
+        .whereType<Map>()
+        .map((entry) => Detection.fromJson(Map<String, dynamic>.from(entry)))
+        .toList();
+  }
+
+  List<RepairStep> _parseRepairSteps(dynamic value) {
+    if (value is! List) return [];
+    return value
+        .whereType<Map>()
+        .map((entry) => RepairStep.fromJson(Map<String, dynamic>.from(entry)))
+        .toList();
+  }
+
+  List<String> _parseStopConditions(dynamic value) {
+    if (value is! List) return [];
+    return value.map((item) => item.toString()).where((s) => s.trim().isNotEmpty).toList();
   }
 
   double _parseConfidence(dynamic value) {
