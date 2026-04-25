@@ -1,8 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- GPU acceleration for flutter_gemma / LiteRT-LM -->
+    <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+
     <application
         android:label="vocaviz"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:largeHeap="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
