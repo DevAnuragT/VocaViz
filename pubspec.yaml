@@ -41,6 +41,10 @@ dependencies:
   # Google AI for Gemma integration
   google_generative_ai: ^0.4.6
 
+  # On-device Gemma 4 inference (LiteRT-LM backend)
+  # Requires Dart 3.8+ for v0.13.x, using v0.11.x for Dart 3.7.2 compatibility
+  flutter_gemma: ^0.11.16
+
   # Local storage
   path_provider: ^2.1.4
   shared_preferences: ^2.3.3
