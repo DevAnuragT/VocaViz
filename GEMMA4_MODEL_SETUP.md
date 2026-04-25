@@ -10,37 +10,34 @@ VocaViz supports three inference modes:
 |------|-------------|--------------|
 | `mock` | Predefined results for demo reliability | None (default) |
 | `remote` | Google AI API (cloud) | API key from aistudio.google.com |
-| `local` | On-device Gemma 4 via LiteRT-LM | Model artifact file |
+| `local` | On-device Gemma 4 via flutter_gemma (LiteRT-LM backend) | Model artifact file |
 
 ## Gemma 4 Model Artifact Requirements
 
 ### Required Format
 
-For Android integration, VocaViz expects the Gemma 4 model in one of these formats:
+For Android integration with flutter_gemma 0.11.x, VocaViz expects the Gemma 4 model in this format:
 
-1. **`.task` format** (Recommended - LiteRT-LM)
-   - Path: `assets/models/gemma-4-2b.task`
-   - Size: ~1.5 GB (quantized 2-bit/4-bit)
-   - Best for: Production apps with LiteRT-LM SDK
+1. **`.litertlm` or `.task` format** (Required for flutter_gemma)
+   - Path: `assets/models/gemma-4-e2b-it.task`
+   - Size: ~2.4 GB (Gemma 4 E2B)
+   - Best for: flutter_gemma on-device inference
 
-2. **`.tflite` format** (Alternative)
-   - Path: `assets/models/gemma-4-2b.tflite`
-   - Size: ~1.1 GB (INT4 quantized)
-   - Best for: Direct TFLite interpreter integration
+**Note:** flutter_gemma handles model loading automatically. Just place the file in assets/models/.
 
 ### Where to Get Gemma 4 Models
 
 #### Official Sources
 
-1. **Google AI Edge Gallery** (for testing)
+1. **Google AI Edge Gallery** (Recommended for testing)
    - Install the [AI Edge Gallery app](https://github.com/google-ai-edge/gallery)
    - Download Gemma 4 E2B model directly on device
-   - Use for prototyping before app integration
+   - Copy model from app data to your project's `assets/models/`
 
 2. **Hugging Face** (for production)
-   - Official: [`google/gemma-4-tflite`](https://huggingface.co/google/gemma-4-tflite) *(coming soon)*
-   - Community: Check for INT4 quantized variants
-   - Look for files named `gemma-4-2b-it-gpu-int4.tflite`
+   - Search for `gemma-4-e2b-it` or `gemma-4-e4b-it`
+   - Look for `.litertlm` or `.task` format files
+   - Example: `google/gemma-4-e2b-it` (official)
 
 3. **Google AI Studio** (for remote API)
    - Get API key: https://aistudio.google.com/app/apikey
@@ -50,49 +47,50 @@ For Android integration, VocaViz expects the Gemma 4 model in one of these forma
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| Android Version | Android 10 (API 29) | Android 14+ (AICore support) |
+| Android Version | Android 8.0 (API 26) | Android 10+ |
 | RAM | 4 GB free | 6+ GB free |
-| Storage | 2 GB free | 4+ GB free |
-| Chipset | Any ARM64 | Snapdragon 8 Gen 2+, Dimensity 9000+, Tensor G3+ |
-| NPU | Optional | Qualcomm Hexagon, MediaTek APU |
+| Storage | 3 GB free | 4+ GB free |
+| Chipset | Any ARM64 with GPU | Snapdragon 8 Gen 2+, Dimensity 9000+, Tensor G3+ |
+| GPU | OpenGL ES 3.0+ | Vulkan or Metal |
 
-### Performance Expectations
+### Performance Expectations (flutter_gemma 0.11.x)
 
-| Device Class | Prefill Speed | Token Generation |
-|--------------|---------------|------------------|
-| High-end (NPU) | ~4000 tokens/s | ~40 tokens/s |
-| Mid-range | ~1500 tokens/s | ~20 tokens/s |
-| Low-end | ~500 tokens/s | ~8 tokens/s |
+| Device Class | Token Generation |
+|--------------|------------------|
+| High-end (GPU) | ~30-50 tokens/s |
+| Mid-range | ~15-25 tokens/s |
+| Low-end | ~5-10 tokens/s |
 
 ## Integration Steps
 
 ### Step 1: Download the Model
 
+**Option A: Google AI Edge Gallery**
+1. Install AI Edge Gallery app on Android device
+2. Download Gemma 4 E2B model (~2.4 GB)
+3. Copy model file from app data to your computer
+4. Place in project's `assets/models/` directory
+
+**Option B: Hugging Face**
 ```bash
-# Example: Download from Hugging Face (requires login)
 cd vocaviz/assets/models/
-wget https://huggingface.co/google/gemma-4-tflite/resolve/main/gemma-4-2b-it-gpu-int4.tflite
-# Rename to expected name
-mv gemma-4-2b-it-gpu-int4.tflite gemma-4-2b.task
+# Download gemma-4-e2b-it model (requires login)
+# Look for .litertlm or .task format
 ```
 
-### Step 2: Update pubspec.yaml
+### Step 2: Place Model in Assets
 
-Add the model asset to your Flutter build:
-
-```yaml
-flutter:
-  assets:
-    - assets/images/sample_pumps/
-    - assets/models/gemma-4-2b.task  # Add this line
 ```
+assets/models/gemma-4-e2b-it.task  # or .litertlm
+```
+
+pubspec.yaml already includes `assets/models/` directory.
 
 ### Step 3: Configure .env
 
 ```bash
-# For local mode
+# For local mode (on-device)
 INFERENCE_MODE=local
-LOCAL_MODEL_PATH=assets/models/gemma-4-2b.task
 
 # For remote mode (alternative)
 INFERENCE_MODE=remote
@@ -100,27 +98,14 @@ GEMMA_API_KEY=your_api_key_here
 GEMMA_MODEL=gemma-4-2b
 ```
 
-### Step 4: Add LiteRT-LM Dependencies
+### Step 4: Build and Run
 
-In `android/app/build.gradle.kts`:
-
-```kotlin
-dependencies {
-    // LiteRT-LM for Gemma 4 inference
-    implementation("com.google.ai.edge.litert:litert-lm-android:1.0.0")
-}
+```bash
+flutter pub get
+flutter run
 ```
 
-### Step 5: Implement Model Loading
-
-The scaffolding is in place in `inference_service.dart`. Complete the TODOs:
-
-```dart
-// In InferenceService.initializeLocalModel():
-// 1. Load model via LiteRT-LM
-// 2. Initialize tokenizer (SentencePiece)
-// 3. Configure inference options (temperature, max tokens)
-```
+flutter_gemma handles model loading automatically. No additional dependencies needed.
 
 ## Current Scaffolding Status
 
@@ -129,83 +114,93 @@ The scaffolding is in place in `inference_service.dart`. Complete the TODOs:
 - [x] `InferenceMode` enum with `local` option
 - [x] `LocalModelStatus` enum for diagnostics
 - [x] `checkLocalModelAvailability()` method
-- [x] `initializeLocalModel()` method
+- [x] `initializeLocalModel()` using flutter_gemma
 - [x] Graceful fallback to mock when model unavailable
 - [x] Diagnostic messages for each failure mode
-- [x] Environment config for local model path
+- [x] Multimodal input (image + text) support
+- [x] Platform exception handling (GPU crashes, OOM)
+- [x] Android configuration (GPU, ProGuard rules)
+- [x] Model status UI widget
 
 ### TODO (Requires Model Artifact)
 
-- [ ] Implement actual LiteRT-LM model loading
-- [ ] Add tokenizer integration (SentencePiece)
-- [ ] Convert image to model input format
-- [ ] Implement streaming response handling
-- [ ] Add memory management for large models
-- [ ] Test on physical Android device
+- [ ] Download Gemma 4 E2B model file
+- [ ] Place at `assets/models/gemma-4-e2b-it.task`
+- [ ] Test on physical Android device with GPU
+- [ ] Verify multimodal image analysis works
+- [ ] Tune temperature/prompt for best results
 
 ## Troubleshooting
 
 ### Model Not Found (`artifactMissing`)
 
-1. Verify file exists at `assets/models/gemma-4-2b.task`
+1. Verify file exists at `assets/models/gemma-4-e2b-it.task`
 2. Run `flutter pub get` to refresh assets
 3. Check `flutter build apk` includes the model file
 
-### Incompatible Format (`artifactIncompatible`)
+### Platform Crash (`initFailed`)
 
-1. Ensure file is `.task` (LiteRT-LM) or `.tflite` format
-2. Check file is not corrupted (verify checksum)
-3. Try official Google model variants
+flutter_gemma may crash on some devices due to:
+- GPU driver issues
+- Insufficient RAM
+- Incompatible Android version
 
-### Device Insufficient (`deviceInsufficient`)
+**Fallback:** App gracefully falls back to mock mode.
 
-1. Close other apps to free RAM
-2. Try smaller model variant (E2B vs E4B)
-2. Consider using `remote` mode instead
+### Low Performance
 
-### Init Failed (`initFailed`)
+- Close other apps to free RAM
+- Reduce max tokens in `getActiveModel(maxTokens: 1024)`
+- Use mid-range quality settings
 
-1. Check `_localModelError` for details
-2. Verify LiteRT-LM dependencies are installed
-3. Ensure Android version supports AICore
+## API Key Points
 
-## Fallback Strategy
+### flutter_gemma Usage (0.11.x)
 
-VocaViz implements a robust fallback chain:
+```dart
+// Initialize once at startup
+await FlutterGemma.initialize(huggingFaceToken: token);
 
+// Get model
+final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
+
+// Create chat
+final chat = await model.createChat();
+
+// Send image + text (multimodal)
+await chat.addQueryChunk(
+  Message.withImage(
+    text: 'Analyze this image...',
+    imageBytes: imageBytes,
+    isUser: true,
+  ),
+);
+
+// Get response
+final response = await chat.generateChatResponse();
 ```
-local mode requested
-    ↓
-Check model availability
-    ↓
-Model ready? → Run local inference
-    ↓ No
-Fallback to mock + diagnostic message
-    ↓
-User sees: "Analysis complete (Local Gemma 4 model not installed)"
+
+### Stability Wrapper
+
+```dart
+try {
+  // flutter_gemma call
+} on PlatformException catch (e) {
+  // Handle GPU/init failures
+  _localModelStatus = LocalModelStatus.initFailed;
+  _localModelError = 'Platform error: ${e.message}';
+  return fallbackResult;
+}
 ```
-
-This ensures the app always works, even without the model artifact.
-
-## Hackathon Submission Notes
-
-For the Gemma 4 Good Hackathon:
-
-1. **Primary target**: Gemma 4 (2B or 4B variant)
-2. **Demo mode**: `mock` is acceptable for reliability
-3. **Production path**: `local` mode with Gemma 4 artifact
-4. **Fallback**: `remote` mode via Google AI API
-
-The architecture supports all three modes - swap implementations without changing app logic.
 
 ## Resources
 
-- [LiteRT-LM Documentation](https://developers.googleblog.com/bring-state-of-the-art-agentic-skills-to-the-edge-with-gemma-4)
-- [Android AICore Developer Preview](https://android-developers.googleblog.com/2026/04/AI-Core-Developer-Preview.html)
-- [Gemma 4 Mobile Guide](https://www.gemma4.app/mobile)
-- [Hugging Face - Gemma 2B TFLite](https://huggingface.co/google/gemma-2b-it-tflite) (reference for format)
+- [flutter_gemma pub.dev](https://pub.dev/packages/flutter_gemma)
+- [Google AI Edge Gallery](https://github.com/google-ai-edge/gallery)
+- [Gemma 4 on Hugging Face](https://huggingface.co/google/gemma-4-e2b-it)
 
 ---
 
-**Last Updated**: 2026-04-12
+**Last Updated**: 2026-04-13
 **VocaViz Version**: 1.0.0 (Hackathon MVP)
+**flutter_gemma Version**: 0.11.16
