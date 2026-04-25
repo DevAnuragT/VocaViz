@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../data/models/analysis_result.dart';
 import '../data/models/detection.dart';
@@ -56,12 +55,11 @@ class InferenceService {
   static const Duration _remoteTimeout = Duration(seconds: 20);
   static const int _maxRemoteRetries = 2;
 
-  /// Path to the local Gemma 4 model artifact.
-  /// Expected format: .task (LiteRT-LM) or .tflite
-  static const String _localModelAssetPath = 'assets/models/gemma-4-2b.task';
 
   InferenceMode _mode;
   GenerativeModel? _model;
+  dynamic _chatSession; // flutter_gemma Chat type
+  bool _localModelInitialized = false;
   LocalModelStatus _localModelStatus = LocalModelStatus.notInitialized;
   Object? _localModelError;
 
@@ -82,6 +80,7 @@ class InferenceService {
     _mode = value;
     if (value == InferenceMode.mock) {
       _model = null;
+      _chatSession = null;
     }
   }
 
@@ -94,33 +93,47 @@ class InferenceService {
     _mode = InferenceMode.remote;
   }
 
+  /// Initialize flutter_gemma for on-device inference.
+  /// Call this once at app startup.
+  static Future<void> initializeGemma({String? huggingFaceToken}) async {
+    try {
+      await FlutterGemma.initialize(
+        huggingFaceToken: huggingFaceToken,
+        maxDownloadRetries: 10,
+      );
+      AppLogger.i('flutter_gemma initialized successfully', 'InferenceService');
+    } catch (e) {
+      AppLogger.w('flutter_gemma init failed: $e', 'InferenceService');
+    }
+  }
+
   /// Check if local Gemma 4 model is available and ready.
   /// Call this before switching to local mode.
   Future<LocalModelStatus> checkLocalModelAvailability() async {
     _localModelStatus = LocalModelStatus.loading;
 
     try {
-      // TODO: Implement actual LiteRT-LM model loading check
-      // This will verify:
-      // 1. Model artifact exists at expected path
-      // 2. Model format is compatible (.task or .tflite)
-      // 3. Device has sufficient RAM
-      // 4. NPU acceleration available (optional but recommended)
-
-      // Placeholder: Check if model asset exists
+      // Check if model artifact exists in assets
       final modelExists = await _checkModelAssetExists();
       if (!modelExists) {
         _localModelStatus = LocalModelStatus.artifactMissing;
-        _localModelError = 'Gemma 4 model artifact not found at $_localModelAssetPath';
+        _localModelError = 'Gemma 4 model artifact not found at ${EnvConfig.localModelPath}';
         return _localModelStatus;
       }
 
-      // TODO: Add format validation and resource checks
+      // Model file exists - mark as ready (actual loading happens on first inference)
       _localModelStatus = LocalModelStatus.ready;
+      return _localModelStatus;
+    } on PlatformException catch (e) {
+      // Platform-specific errors (e.g., GPU not available)
+      _localModelStatus = LocalModelStatus.deviceInsufficient;
+      _localModelError = 'Platform error: ${e.message}';
+      AppLogger.e('Platform error checking model', 'InferenceService', e);
       return _localModelStatus;
     } catch (e) {
       _localModelStatus = LocalModelStatus.initFailed;
       _localModelError = e;
+      AppLogger.e('Error checking model availability', 'InferenceService', e);
       return _localModelStatus;
     }
   }
@@ -130,13 +143,9 @@ class InferenceService {
     final modelPath = EnvConfig.localModelPath;
 
     try {
-      // Try to load the model from assets
-      // First, try to load via AssetBundle to verify it exists
       await rootBundle.load(modelPath);
-
       return true;
     } catch (e) {
-      // Asset not found or failed to load
       if (e.toString().contains('Unable to load asset')) {
         AppLogger.w('Model asset not found at $modelPath', 'InferenceService');
       } else {
@@ -146,7 +155,7 @@ class InferenceService {
     }
   }
 
-  /// Initialize the local Gemma 4 model.
+  /// Initialize the local Gemma 4 model with flutter_gemma.
   /// Call after verifying availability.
   Future<bool> initializeLocalModel() async {
     if (_localModelStatus != LocalModelStatus.ready) {
@@ -157,50 +166,36 @@ class InferenceService {
     }
 
     try {
-      // Copy model from assets to writable directory for LiteRT-LM
-      final modelPath = await _copyModelToCache();
+      // Get active model using flutter_gemma
+      // flutter_gemma 0.11.x uses getActiveModel
+      final inferenceModel = await FlutterGemma.getActiveModel(
+        maxTokens: 2048,
+      );
 
-      // TODO: When LiteRT-LM Flutter bindings are available, initialize here:
-      // _liteRtModel = await LiteRtLm.load(model: modelPath);
+      // Create chat session
+      _chatSession = await inferenceModel.createChat();
+      _localModelInitialized = true;
 
-      // For now, mark as ready (model file is available)
       _localModelStatus = LocalModelStatus.ready;
-      AppLogger.i('Local model initialized at: $modelPath', 'InferenceService');
+      AppLogger.i('Local Gemma model initialized', 'InferenceService');
       return true;
+    } on PlatformException catch (e) {
+      // Catch platform-specific crashes (GPU init failures, etc.)
+      _localModelStatus = LocalModelStatus.initFailed;
+      _localModelError = 'Platform error: ${e.message}';
+      AppLogger.e('Platform error initializing model', 'InferenceService', e);
+      return false;
+    } on Exception catch (e) {
+      _localModelStatus = LocalModelStatus.initFailed;
+      _localModelError = e;
+      AppLogger.e('Exception initializing model', 'InferenceService', e);
+      return false;
     } catch (e) {
       _localModelStatus = LocalModelStatus.initFailed;
       _localModelError = e;
       AppLogger.e('Failed to initialize local model', 'InferenceService', e);
       return false;
     }
-  }
-
-  /// Copy model from assets to app's cache directory.
-  /// LiteRT-LM requires file path access, not asset bundle.
-  Future<String> _copyModelToCache() async {
-    final modelPath = EnvConfig.localModelPath;
-
-    // Get cache directory
-    final cacheDir = await getTemporaryDirectory();
-    final modelCachePath = '${cacheDir.path}/models/$modelPath';
-    final modelFile = File(modelCachePath);
-
-    // Check if already cached
-    if (await modelFile.exists()) {
-      AppLogger.i('Model already cached at: $modelCachePath', 'InferenceService');
-      return modelCachePath;
-    }
-
-    // Create directory
-    await modelFile.parent.create(recursive: true);
-
-    // Read from assets and write to cache
-    final byteData = await rootBundle.load(modelPath);
-    final bytes = byteData.buffer.asUint8List();
-    await modelFile.writeAsBytes(bytes);
-
-    AppLogger.i('Model cached at: $modelCachePath (${bytes.length} bytes)', 'InferenceService');
-    return modelCachePath;
   }
 
   /// Analyze an image and return structured results.
@@ -240,7 +235,7 @@ class InferenceService {
     return MockKnowledgeBase.getMockResult(selectedScenario);
   }
 
-  /// Local inference using on-device Gemma 4 via LiteRT-LM.
+  /// Local inference using on-device Gemma 4 via flutter_gemma (LiteRT-LM backend).
   /// Requires model artifact to be placed in assets/models/
   Future<AnalysisResult> _analyzeLocal(Uint8List imageBytes) async {
     // Check model status before attempting inference
@@ -253,22 +248,61 @@ class InferenceService {
       return _analyzeLocalWithFallback(imageBytes);
     }
 
-    try {
-      // TODO: Implement actual LiteRT-LM inference
-      // Expected flow:
-      // 1. Convert image to model input format (resize, normalize)
-      // 2. Run inference: model.generateResponse(prompt + image)
-      // 3. Parse JSON response with same _parseJsonResponse()
-      // 4. Return structured AnalysisResult
+    // Initialize chat session if not already done
+    if (!_localModelInitialized || _chatSession == null) {
+      final initialized = await initializeLocalModel();
+      if (!initialized) {
+        return _analyzeLocalWithFallback(imageBytes);
+      }
+    }
 
-      // Placeholder until model artifact provided
+    try {
+      // Send image + prompt to local Gemma model
+      final chat = _chatSession;
+
+      // Add user message with image (multimodal input)
+      await chat.addQueryChunk(
+        Message.withImage(
+          text: _buildLocalPrompt(),
+          imageBytes: imageBytes,
+          isUser: true,
+        ),
+      );
+
+      // Generate response (synchronous)
+      final response = await chat.generateChatResponse();
+      final responseText = response.text?.trim() ?? '';
+
+      if (responseText.isEmpty) {
+        return AnalysisResult.lowConfidence('Local model returned empty response.');
+      }
+
+      // Parse JSON response
+      final parsed = _parseJsonResponse(responseText);
+      return _normalizeResult(parsed);
+    } on PlatformException catch (e) {
+      // Catch platform crashes (GPU failures, OOM, etc.)
+      AppLogger.e('Local inference platform error', 'InferenceService', e);
+      _localModelStatus = LocalModelStatus.initFailed;
+      _localModelError = 'Platform error: ${e.message}';
+      return _analyzeLocalWithFallback(imageBytes);
+    } on Exception catch (e) {
+      AppLogger.e('Local inference failed', 'InferenceService', e);
       return _analyzeLocalWithFallback(imageBytes);
     } catch (e) {
-      AppLogger.e('Local Gemma 4 inference failed', 'InferenceService', e);
+      AppLogger.e('Local inference failed', 'InferenceService', e);
       _localModelStatus = LocalModelStatus.initFailed;
       _localModelError = e;
       return _analyzeLocalWithFallback(imageBytes);
     }
+  }
+
+  /// Build prompt for local inference (optimized for on-device model).
+  String _buildLocalPrompt() {
+    return '''Analyze this image for belt-driven water pump faults.
+Respond ONLY with valid JSON (no markdown, no explanation):
+{"machine_type":"belt_driven_water_pump","issue_type":"loose_belt|worn_belt|misaligned_belt|unknown","confidence":0.XX,"summary":"...","detections":[...],"repair_steps":[...],"stop_conditions":[...]}
+''';
   }
 
   /// Fall back to mock inference when local model unavailable.
