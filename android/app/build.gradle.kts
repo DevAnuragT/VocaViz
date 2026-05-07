@@ -65,10 +65,9 @@ android {
 }
 
 // LiteRT-LM dependency for Gemma 4 on-device inference
-// Uncomment when model artifact is available:
-// dependencies {
-//     implementation("com.google.ai.edge.litert:litert-lm-android:1.0.0")
-// }
+dependencies {
+    implementation("com.google.ai.edge.litert:litert-lm-android:1.0.0")
+}
 
 flutter {
     source = "../.."

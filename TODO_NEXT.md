@@ -23,7 +23,7 @@ The inference architecture now supports Gemma 4 via three modes:
 - [x] Documentation in [GEMMA4_MODEL_SETUP.md](GEMMA4_MODEL_SETUP.md)
 
 **What's needed:**
-- [ ] Place Gemma 4 `.task` or `.tflite` model at `assets/models/gemma-4-2b.task`
+- [ ] Place Gemma 4 `.litertlm` (and companion `.bin`) at `assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
 - [ ] Add LiteRT-LM dependency to `android/app/build.gradle.kts`
 - [ ] Implement actual model loading in `InferenceService.initializeLocalModel()`
 - [ ] Add tokenizer integration (SentencePiece)
@@ -37,7 +37,7 @@ GEMMA_MODEL=gemma-4-2b
 
 // Local mode (needs model artifact):
 INFERENCE_MODE=local
-LOCAL_MODEL_PATH=assets/models/gemma-4-2b.task
+LOCAL_MODEL_PATH=assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm
 ```
 
 **Files modified:**

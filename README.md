@@ -83,11 +83,11 @@ GEMMA_MODEL=gemma-4-2b
 ### Enable Gemma 4 Local Inference
 
 1. Download Gemma 4 model artifact (see [GEMMA4_MODEL_SETUP.md](GEMMA4_MODEL_SETUP.md))
-2. Place at `assets/models/gemma-4-2b.task`
+2. Place at `assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
 3. Edit `.env`:
 ```
 INFERENCE_MODE=local
-LOCAL_MODEL_PATH=assets/models/gemma-4-2b.task
+LOCAL_MODEL_PATH=assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm
 ```
 
 ### Demo Mode

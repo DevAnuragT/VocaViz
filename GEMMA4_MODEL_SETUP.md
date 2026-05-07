@@ -19,9 +19,10 @@ VocaViz supports three inference modes:
 For Android integration with flutter_gemma 0.11.x, VocaViz expects the Gemma 4 model in this format:
 
 1. **`.litertlm` or `.task` format** (Required for flutter_gemma)
-   - Path: `assets/models/gemma-4-e2b-it.task`
-   - Size: ~2.4 GB (Gemma 4 E2B)
-   - Best for: flutter_gemma on-device inference
+  - Path: `assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
+  - Companion: `.bin` file with the same prefix
+  - Size: ~2.4 GB (Gemma 4 E2B)
+  - Best for: flutter_gemma on-device inference
 
 **Note:** flutter_gemma handles model loading automatically. Just place the file in assets/models/.
 
@@ -81,7 +82,8 @@ cd vocaviz/assets/models/
 ### Step 2: Place Model in Assets
 
 ```
-assets/models/gemma-4-e2b-it.task  # or .litertlm
+assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm
+assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm_9941790358430999734.bin
 ```
 
 pubspec.yaml already includes `assets/models/` directory.
@@ -125,7 +127,7 @@ flutter_gemma handles model loading automatically. No additional dependencies ne
 ### TODO (Requires Model Artifact)
 
 - [ ] Download Gemma 4 E2B model file
-- [ ] Place at `assets/models/gemma-4-e2b-it.task`
+- [ ] Place at `assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
 - [ ] Test on physical Android device with GPU
 - [ ] Verify multimodal image analysis works
 - [ ] Tune temperature/prompt for best results
@@ -134,7 +136,7 @@ flutter_gemma handles model loading automatically. No additional dependencies ne
 
 ### Model Not Found (`artifactMissing`)
 
-1. Verify file exists at `assets/models/gemma-4-e2b-it.task`
+1. Verify file exists at `assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
 2. Run `flutter pub get` to refresh assets
 3. Check `flutter build apk` includes the model file
 

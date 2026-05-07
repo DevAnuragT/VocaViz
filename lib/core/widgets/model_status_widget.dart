@@ -201,9 +201,9 @@ class _ModelStatusWidgetState extends State<ModelStatusWidget> {
       case LocalModelStatus.loading:
         return 'Please wait while we check model availability';
       case LocalModelStatus.artifactMissing:
-        return 'Place gemma-4-2b.task in assets/models/ to enable offline AI';
+        return 'Place the Gemma 4 .litertlm and .bin files in assets/models/';
       case LocalModelStatus.artifactIncompatible:
-        return 'Model must be in .task or .tflite format';
+        return 'Model must be in .litertlm, .task, .tflite, or .bin format';
       case LocalModelStatus.deviceInsufficient:
         return 'Device lacks RAM or NPU support for local inference';
       case LocalModelStatus.initFailed:
@@ -229,7 +229,10 @@ class _ModelStatusWidgetState extends State<ModelStatusWidget> {
                   const Text('To enable on-device Gemma 4:'),
                   const SizedBox(height: 16),
                   _buildStep('1', 'Download Gemma 4 model artifact'),
-                  _buildStep('2', 'Place file at: assets/models/gemma-4-2b.task'),
+                  _buildStep(
+                    '2',
+                    'Place files at: assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm (+ .bin)',
+                  ),
                   _buildStep('3', 'Run: flutter pub get'),
                   _buildStep('4', 'Rebuild and run the app'),
                   const SizedBox(height: 16),

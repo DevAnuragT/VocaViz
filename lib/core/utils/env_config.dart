@@ -6,7 +6,8 @@ class EnvConfig {
   static String? _apiKey;
   static String _model = 'gemma-4-2b';  // Default to Gemma 4 for hackathon
   static String _mode = 'mock';
-  static String _localModelPath = 'assets/models/gemma-4-2b.task';
+  static String _localModelPath =
+      'assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm';
 
   /// Initialize environment variables.
   /// Must be called before using any env-dependent features.
@@ -16,7 +17,8 @@ class EnvConfig {
       _apiKey = dotenv.env['GEMMA_API_KEY'];
       _model = dotenv.env['GEMMA_MODEL'] ?? 'gemma-4-2b';
       _mode = dotenv.env['INFERENCE_MODE'] ?? 'mock';
-      _localModelPath = dotenv.env['LOCAL_MODEL_PATH'] ?? 'assets/models/gemma-4-2b.task';
+        _localModelPath = dotenv.env['LOCAL_MODEL_PATH'] ??
+          'assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm';
 
       AppLogger.i('Env loaded: mode=$_mode, model=$_model, apiKey=${_apiKey != null ? "set" : "missing"}, localModel=$_localModelPath');
     } catch (e) {

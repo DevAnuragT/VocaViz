@@ -4,9 +4,10 @@ Place your Gemma 4 model artifact here for on-device inference.
 
 ## Required File
 
-**Filename:** `gemma-4-2b.task` (or `gemma-4-2b.tflite`)
+**Filename:** `gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
+**Companion:** `gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm_9941790358430999734.bin`
 
-**Expected path:** `assets/models/gemma-4-2b.task`
+**Expected path:** `assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
 
 ## Where to Get the Model
 
@@ -37,7 +38,7 @@ Place your Gemma 4 model artifact here for on-device inference.
 1. Update `.env`:
    ```
    INFERENCE_MODE=local
-   LOCAL_MODEL_PATH=assets/models/gemma-4-2b.task
+   LOCAL_MODEL_PATH=assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm
    ```
 
 2. Run `flutter pub get` to refresh assets

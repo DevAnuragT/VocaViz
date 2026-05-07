@@ -92,7 +92,7 @@
 
 1. **Gemma 4 Model Artifact** (~1.5 GB)
    - Format: `.task` (LiteRT-LM) or `.tflite`
-   - Place at: `assets/models/gemma-4-2b.task`
+  - Place at: `assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm`
    - Source: Hugging Face or Google AI Edge Gallery
 
 2. **LiteRT-LM Dependency** (uncomment in `android/app/build.gradle.kts`):
@@ -169,7 +169,7 @@ if (status == LocalModelStatus.ready) {
 ```bash
 # .env for local mode
 INFERENCE_MODE=local
-LOCAL_MODEL_PATH=assets/models/gemma-4-2b.task
+LOCAL_MODEL_PATH=assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm
 
 # .env for remote mode
 INFERENCE_MODE=remote

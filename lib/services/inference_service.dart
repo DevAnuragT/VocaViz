@@ -113,6 +113,14 @@ class InferenceService {
     _localModelStatus = LocalModelStatus.loading;
 
     try {
+      final modelPath = EnvConfig.localModelPath;
+
+      if (!_isSupportedModelAsset(modelPath)) {
+        _localModelStatus = LocalModelStatus.artifactIncompatible;
+        _localModelError = 'Unsupported model format: $modelPath';
+        return _localModelStatus;
+      }
+
       // Check if model artifact exists in assets
       final modelExists = await _checkModelAssetExists();
       if (!modelExists) {
@@ -123,6 +131,7 @@ class InferenceService {
 
       // Model file exists - mark as ready (actual loading happens on first inference)
       _localModelStatus = LocalModelStatus.ready;
+      _localModelError = null;
       return _localModelStatus;
     } on PlatformException catch (e) {
       // Platform-specific errors (e.g., GPU not available)
@@ -143,16 +152,38 @@ class InferenceService {
     final modelPath = EnvConfig.localModelPath;
 
     try {
-      await rootBundle.load(modelPath);
-      return true;
-    } catch (e) {
-      if (e.toString().contains('Unable to load asset')) {
-        AppLogger.w('Model asset not found at $modelPath', 'InferenceService');
-      } else {
-        AppLogger.e('Error checking model asset', 'InferenceService', e);
+      final manifestContent = await rootBundle.loadString('AssetManifest.json');
+      final manifest = jsonDecode(manifestContent) as Map<String, dynamic>;
+      if (manifest.containsKey(modelPath)) {
+        return true;
       }
+
+      AppLogger.w('Model asset not found at $modelPath', 'InferenceService');
+      return false;
+    } catch (e) {
+      AppLogger.e('Error checking model asset', 'InferenceService', e);
       return false;
     }
+  }
+
+  bool _isSupportedModelAsset(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.task') ||
+        lower.endsWith('.litertlm') ||
+        lower.endsWith('.tflite') ||
+        lower.endsWith('.bin');
+  }
+
+  ModelFileType _modelFileTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.bin') || lower.endsWith('.tflite')) {
+      return ModelFileType.binary;
+    }
+    return ModelFileType.task;
+  }
+
+  String _stripAssetPrefix(String path) {
+    return path.startsWith('assets/') ? path.substring('assets/'.length) : path;
   }
 
   /// Initialize the local Gemma 4 model with flutter_gemma.
@@ -166,10 +197,22 @@ class InferenceService {
     }
 
     try {
+      _localModelStatus = LocalModelStatus.loading;
+      _localModelError = null;
+
+      final modelPath = EnvConfig.localModelPath;
+      final assetPath = _stripAssetPrefix(modelPath);
+
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: _modelFileTypeForPath(modelPath),
+      ).fromAsset(assetPath).install();
+
       // Get active model using flutter_gemma
-      // flutter_gemma 0.11.x uses getActiveModel
       final inferenceModel = await FlutterGemma.getActiveModel(
         maxTokens: 2048,
+        supportImage: true,
+        maxNumImages: 1,
       );
 
       // Create chat session
@@ -315,7 +358,7 @@ Respond ONLY with valid JSON (no markdown, no explanation):
         diagnosticNote = 'Local Gemma 4 model not installed. See GEMMA4_MODEL_SETUP.md';
         break;
       case LocalModelStatus.artifactIncompatible:
-        diagnosticNote = 'Model format incompatible. Expected .task or .tflite format';
+        diagnosticNote = 'Model format incompatible. Expected .litertlm, .task, .tflite, or .bin';
         break;
       case LocalModelStatus.deviceInsufficient:
         diagnosticNote = 'Device lacks resources for local inference';

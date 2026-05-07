@@ -48,3 +48,9 @@ app.*.map.json
 .env
 .env.local
 .env.*.local
+
+# Local model artifacts (large files)
+assets/models/*.litertlm
+assets/models/*.litertlm_*.bin
+assets/models/*.task
+assets/models/*.tflite
