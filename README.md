@@ -96,6 +96,12 @@ The app includes sample images for reliable demos:
 2. Select a fault type (loose/worn/misaligned belt)
 3. View analysis with overlays and repair steps
 
+### CI Smoke Tests
+Use a small, low-memory test subset:
+```bash
+bash scripts/ci_smoke_tests.sh
+```
+
 ## Architecture
 
 ```
