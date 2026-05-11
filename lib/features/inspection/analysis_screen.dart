@@ -35,6 +35,13 @@ class AnalysisScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
+  String _modeLabel() {
+    if (EnvConfig.isOfflineMode) return 'offline';
+    if (EnvConfig.isRemoteMode) return 'Gemma AI';
+    if (EnvConfig.isLocalMode) return 'local';
+    return 'mock';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -216,8 +223,8 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text(
-              'Processing with ${EnvConfig.isRemoteMode ? 'Gemma AI' : 'mock'} inference...',
+              Text(
+                'Processing with ${_modeLabel()} inference...',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],

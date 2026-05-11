@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppPreferences {
   static const String _onboardingKey = 'onboarding_completed';
   static const String _historyEnabledKey = 'history_enabled';
+  static const String _inferenceModeKey = 'inference_mode';
 
   /// Check if user has completed onboarding.
   static Future<bool> hasCompletedOnboarding() async {
@@ -27,6 +28,18 @@ class AppPreferences {
   static Future<void> setHistoryEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_historyEnabledKey, enabled);
+  }
+
+  /// Get saved inference mode (mock/offline/remote/local).
+  static Future<String?> getInferenceMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_inferenceModeKey);
+  }
+
+  /// Persist inference mode selection.
+  static Future<void> setInferenceMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_inferenceModeKey, mode);
   }
 
   /// Clear all preferences (for testing).

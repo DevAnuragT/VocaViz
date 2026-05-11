@@ -97,7 +97,7 @@ INFERENCE_MODE=local
 # For remote mode (alternative)
 INFERENCE_MODE=remote
 GEMMA_API_KEY=your_api_key_here
-GEMMA_MODEL=gemma-4-2b
+GEMMA_MODEL=gemma-4-31b-it
 ```
 
 ### Step 4: Build and Run

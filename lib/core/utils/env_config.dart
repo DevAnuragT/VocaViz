@@ -6,6 +6,7 @@ class EnvConfig {
   static String? _apiKey;
   static String _model = 'gemma-4-2b';  // Default to Gemma 4 for hackathon
   static String _mode = 'mock';
+  static String? _overrideMode;
   static String _localModelPath =
       'assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm';
 
@@ -34,7 +35,12 @@ class EnvConfig {
   static String get model => _model;
 
   /// Get inference mode.
-  static String get mode => _mode;
+  static String get mode => _overrideMode ?? _mode;
+
+  /// Override inference mode at runtime.
+  static void setOverrideMode(String? mode) {
+    _overrideMode = mode;
+  }
 
   /// Get local model path.
   static String get localModelPath => _localModelPath;
@@ -43,8 +49,11 @@ class EnvConfig {
   static bool get hasApiKey => _apiKey != null && _apiKey!.isNotEmpty;
 
   /// Check if remote mode is enabled.
-  static bool get isRemoteMode => _mode == 'remote' && hasApiKey;
+  static bool get isRemoteMode => mode == 'remote' && hasApiKey;
 
   /// Check if local mode is enabled.
-  static bool get isLocalMode => _mode == 'local';
+  static bool get isLocalMode => mode == 'local';
+
+  /// Check if offline mode is enabled.
+  static bool get isOfflineMode => mode == 'offline';
 }

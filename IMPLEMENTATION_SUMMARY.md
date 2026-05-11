@@ -27,7 +27,7 @@
 ### 2. Environment Configuration (`lib/core/utils/env_config.dart`)
 
 **Updates:**
-- Default model changed to `gemma-4-2b`
+- Default model changed to `gemma-4-31b-it`
 - Added `localModelPath` configuration
 - Added `isLocalMode` getter
 - Supports `.env` configuration for all three modes
@@ -174,7 +174,7 @@ LOCAL_MODEL_PATH=assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.l
 # .env for remote mode
 INFERENCE_MODE=remote
 GEMMA_API_KEY=your_key_here
-GEMMA_MODEL=gemma-4-2b
+GEMMA_MODEL=gemma-4-31b-it
 
 # .env for mock mode (default)
 INFERENCE_MODE=mock

@@ -1,0 +1,185 @@
+{
+  "loose_belt": {
+    "machine_type": "belt_driven_water_pump",
+    "issue_type": "loose_belt",
+    "confidence": 0.95,
+    "summary": "Excessive belt sag detected between pulleys, indicating insufficient tension which may lead to slippage and reduced pump efficiency.",
+    "detections": [
+      {
+        "label": "sag_zone",
+        "x": 0.42,
+        "y": 0.55,
+        "width": 0.18,
+        "height": 0.08,
+        "severity": "medium"
+      },
+      {
+        "label": "pulley",
+        "x": 0.25,
+        "y": 0.48,
+        "width": 0.12,
+        "height": 0.12,
+        "severity": "low"
+      }
+    ],
+    "repair_steps": [
+      {
+        "step": 1,
+        "title": "Safety Lockout",
+        "instruction": "Shut down the motor and implement lock-out/tag-out procedures to ensure the pump cannot be started.",
+        "warning": "Severe injury risk if machine starts during inspection."
+      },
+      {
+        "step": 2,
+        "title": "Belt Inspection",
+        "instruction": "Examine the belt for glazing, cracking, or permanent stretching.",
+        "warning": null
+      },
+      {
+        "step": 3,
+        "title": "Adjust Tension",
+        "instruction": "Loosen the motor mounting bolts and slide the motor base to increase tension on the belt span.",
+        "warning": "Avoid over-tensioning to prevent premature bearing failure."
+      },
+      {
+        "step": 4,
+        "title": "Tension Verification",
+        "instruction": "Check deflection at the center of the span; it should meet the manufacturer's specified deflection limit.",
+        "warning": null
+      },
+      {
+        "step": 5,
+        "title": "Secure and Test",
+        "instruction": "Tighten all mounting hardware and reinstall safety guards before performing a test run.",
+        "warning": "Ensure all guards are secure to prevent debris ingress."
+      }
+    ],
+    "stop_conditions": [
+      "Belt is stretched beyond maximum adjustment limit",
+      "Pulley misalignment detected that prevents proper seating",
+      "Severe belt fraying or structural failure observed"
+    ]
+  },
+  "worn_belt": {
+    "machine_type": "belt_driven_water_pump",
+    "issue_type": "worn_belt",
+    "confidence": 0.94,
+    "summary": "Drive belt exhibits significant fraying and glazing on the contact surfaces, indicating imminent failure and reduced pumping efficiency.",
+    "detections": [
+      {
+        "label": "worn_area",
+        "x": 0.42,
+        "y": 0.35,
+        "width": 0.15,
+        "height": 0.08,
+        "severity": "high"
+      },
+      {
+        "label": "belt",
+        "x": 0.38,
+        "y": 0.2,
+        "width": 0.25,
+        "height": 0.6,
+        "severity": "medium"
+      }
+    ],
+    "repair_steps": [
+      {
+        "step": 1,
+        "title": "Power Isolation",
+        "instruction": "Disconnect the pump from the primary power source and apply lockout-tagout (LOTO) procedures.",
+        "warning": "Failure to isolate power may result in accidental startup and severe injury."
+      },
+      {
+        "step": 2,
+        "title": "Tension Release",
+        "instruction": "Loosen the motor mounting bolts to slide the motor away from the pump, releasing tension on the belt.",
+        "warning": null
+      },
+      {
+        "step": 3,
+        "title": "Belt Removal and Pulley Inspection",
+        "instruction": "Remove the worn belt and inspect both the drive and driven pulleys for scoring, wear, or misalignment.",
+        "warning": "Replace pulleys if deep grooves are detected to prevent premature wear of the new belt."
+      },
+      {
+        "step": 4,
+        "title": "Installation",
+        "instruction": "Install a new belt matching the original OEM specifications and adjust motor position to achieve proper tension.",
+        "warning": null
+      },
+      {
+        "step": 5,
+        "title": "Validation Run",
+        "instruction": "Tighten all mounting bolts, remove LOTO devices, and run the pump for 5 minutes to verify smooth operation.",
+        "warning": "Ensure all guards are reinstalled before powering on."
+      }
+    ],
+    "stop_conditions": [
+      "Pulley shaft is bent or excessively worn",
+      "Belt slippage persists after proper tensioning",
+      "Abnormal vibration detected during validation run"
+    ]
+  },
+  "misaligned_belt": {
+    "machine_type": "belt_driven_water_pump",
+    "issue_type": "misaligned_belt",
+    "confidence": 0.95,
+    "summary": "Drive belt is tracking off-center on the pulleys, leading to uneven edge wear and risk of belt slippage.",
+    "detections": [
+      {
+        "label": "misalignment_zone",
+        "x": 0.42,
+        "y": 0.35,
+        "width": 0.15,
+        "height": 0.1,
+        "severity": "medium"
+      },
+      {
+        "label": "worn_area",
+        "x": 0.45,
+        "y": 0.38,
+        "width": 0.05,
+        "height": 0.05,
+        "severity": "low"
+      }
+    ],
+    "repair_steps": [
+      {
+        "step": 1,
+        "title": "Safety Lockout",
+        "instruction": "Disconnect the power source and implement lockout-tagout procedures to ensure the pump cannot start.",
+        "warning": "Verify zero energy state before touching the drive system."
+      },
+      {
+        "step": 2,
+        "title": "Check Pulley Parallelism",
+        "instruction": "Use a straight edge or laser alignment tool across the faces of both pulleys to identify the degree of misalignment.",
+        "warning": null
+      },
+      {
+        "step": 3,
+        "title": "Adjust Pulley Alignment",
+        "instruction": "Loosen the pulley mounting bolts and shift the pulley until it is perfectly aligned with the mating pulley.",
+        "warning": "Do not force the pulley; check for debris on the shaft first."
+      },
+      {
+        "step": 4,
+        "title": "Tension Adjustment",
+        "instruction": "Re-tension the belt to the manufacturer's specification using the tensioning bolt or slider.",
+        "warning": "Excessive tension can lead to premature bearing failure."
+      },
+      {
+        "step": 5,
+        "title": "Operational Test",
+        "instruction": "Remove guards, start the pump briefly to observe tracking, then reinstall all safety guards.",
+        "warning": "Never observe the belt without safety guards in place during full operation."
+      }
+    ],
+    "stop_conditions": [
+      "Belt continues to track off-center after two adjustment attempts",
+      "Evidence of pulley shaft bending or wear",
+      "Belt displays deep structural cracks or fraying"
+    ]
+  }
+}

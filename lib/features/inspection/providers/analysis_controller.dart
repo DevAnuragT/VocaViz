@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/env_config.dart';
 import '../../../core/utils/logger.dart';
+import '../../../core/utils/device_capabilities.dart';
 import '../../../data/models/analysis_result.dart';
 import '../../../services/inference_service.dart';
 
@@ -69,15 +70,24 @@ class AnalysisController extends StateNotifier<AnalysisState> {
           modelName: EnvConfig.model,
         );
         AppLogger.i('Using remote Gemma inference (model: ${EnvConfig.model})', 'AnalysisController');
+      } else if (EnvConfig.isOfflineMode) {
+        _inferenceService.mode = InferenceMode.offline;
+        AppLogger.i('Using offline knowledge base', 'AnalysisController');
       } else if (EnvConfig.isLocalMode) {
-        _inferenceService.mode = InferenceMode.local;
-        // Check and initialize local model
-        final status = await checkLocalModel();
-        if (status == LocalModelStatus.ready) {
-          await _inferenceService.initializeLocalModel();
-          AppLogger.i('Using local Gemma 4 inference', 'AnalysisController');
+        final supportsLocal = await DeviceCapabilities.supportsLocalGemma();
+        if (!supportsLocal) {
+          _inferenceService.mode = InferenceMode.offline;
+          AppLogger.w('Local mode disabled on low-RAM device. Falling back to offline.', 'AnalysisController');
         } else {
-          AppLogger.w('Local mode requested but model not ready (status: $status). Falling back to mock.', 'AnalysisController');
+          _inferenceService.mode = InferenceMode.local;
+          // Check and initialize local model
+          final status = await checkLocalModel();
+          if (status == LocalModelStatus.ready) {
+            await _inferenceService.initializeLocalModel();
+            AppLogger.i('Using local Gemma 4 inference', 'AnalysisController');
+          } else {
+            AppLogger.w('Local mode requested but model not ready (status: $status). Falling back to mock.', 'AnalysisController');
+          }
         }
       } else {
         _inferenceService.mode = InferenceMode.mock;

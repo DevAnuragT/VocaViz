@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/logger.dart';
 import '../core/utils/preferences.dart';
+import '../core/utils/env_config.dart';
 import '../data/models/analysis_result.dart';
 import '../data/models/history_entry.dart';
 import '../features/home/home_screen.dart';
@@ -39,6 +40,8 @@ class _VocaVizAppState extends ConsumerState<VocaVizApp> {
 
   Future<void> _loadPreferences() async {
     final completed = await AppPreferences.hasCompletedOnboarding();
+    final preferredMode = await AppPreferences.getInferenceMode();
+    EnvConfig.setOverrideMode(preferredMode);
     if (mounted) {
       setState(() {
         _hasCompletedOnboarding = completed;

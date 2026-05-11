@@ -8,6 +8,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import '../data/models/analysis_result.dart';
 import '../data/models/detection.dart';
 import '../data/models/repair_step.dart';
+import '../data/offline/offline_knowledge_base.dart';
 import '../data/mock/mock_knowledge_base.dart';
 import '../../core/utils/logger.dart';
 import '../../core/utils/env_config.dart';
@@ -16,6 +17,9 @@ import '../../core/utils/env_config.dart';
 enum InferenceMode {
   /// Uses mock/predefined results - reliable for demos
   mock,
+
+  /// Uses offline knowledge base generated at build time
+  offline,
 
   /// Uses local Gemma 4 model (on-device via LiteRT-LM) - offline capable
   /// Requires Gemma 4 model artifact in .task or .tflite format
@@ -252,6 +256,8 @@ class InferenceService {
     switch (_mode) {
       case InferenceMode.mock:
         return _analyzeMock(imageBytes, scenario);
+      case InferenceMode.offline:
+        return _analyzeOffline(imageBytes, scenario);
       case InferenceMode.local:
         return _analyzeLocal(imageBytes);
       case InferenceMode.remote:
@@ -271,10 +277,18 @@ class InferenceService {
 
     // Otherwise, deterministically pick based on image hash
     // This ensures the same image always returns the same result
-    final hash = _hashBytes(imageBytes);
-    final scenarios = ['loose_belt', 'worn_belt', 'misaligned_belt'];
-    final selectedScenario = scenarios[hash % scenarios.length];
+    final selectedScenario = _scenarioForBytes(imageBytes);
 
+    return MockKnowledgeBase.getMockResult(selectedScenario);
+  }
+
+  /// Offline analysis using pre-generated Gemma knowledge base.
+  Future<AnalysisResult> _analyzeOffline(Uint8List imageBytes, String? scenario) async {
+    final selectedScenario = scenario ?? _scenarioForBytes(imageBytes);
+    final offlineResult = await OfflineKnowledgeBase.getResult(selectedScenario);
+    if (offlineResult != null) {
+      return offlineResult;
+    }
     return MockKnowledgeBase.getMockResult(selectedScenario);
   }
 
@@ -653,6 +667,12 @@ Example B:
       hash = ((hash * 31) + bytes[i]) % 0x7FFFFFFF;
     }
     return hash;
+  }
+
+  String _scenarioForBytes(Uint8List imageBytes) {
+    final hash = _hashBytes(imageBytes);
+    const scenarios = ['loose_belt', 'worn_belt', 'misaligned_belt'];
+    return scenarios[hash % scenarios.length];
   }
 }
 

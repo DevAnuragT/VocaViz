@@ -68,8 +68,9 @@ flutter run
 | Mode | Setup | Use Case |
 |------|-------|----------|
 | **Mock** (default) | No setup needed | Demos, offline, testing |
+| **Offline** (pre-generated) | No setup needed | Offline repair guidance on any device |
 | **Remote** (Gemma API) | Add API key to `.env` | Real AI analysis via cloud |
-| **Local** (on-device Gemma 4) | Place model artifact in `assets/models/` | Offline AI, privacy-preserving |
+| **Local** (on-device Gemma 4) | Place model artifact in `assets/models/` | Offline AI, high-end devices (8 GB+ RAM) |
 
 ### Enable Gemma 4 Remote Inference
 
@@ -77,7 +78,7 @@ Edit `.env`:
 ```
 INFERENCE_MODE=remote
 GEMMA_API_KEY=your_actual_api_key_here
-GEMMA_MODEL=gemma-4-2b
+GEMMA_MODEL=gemma-4-31b-it
 ```
 
 ### Enable Gemma 4 Local Inference
@@ -88,6 +89,19 @@ GEMMA_MODEL=gemma-4-2b
 ```
 INFERENCE_MODE=local
 LOCAL_MODEL_PATH=assets/models/gemma4_2b_v09_obfus_fix_all_modalities_thinking.litertlm
+```
+
+### Enable Offline Knowledge Base
+
+Edit `.env`:
+```
+INFERENCE_MODE=offline
+```
+
+Generate or refresh the offline knowledge base:
+```bash
+GEMMA_API_KEY=your_api_key_here GEMMA_MODEL=gemma-4-31b-it \
+  dart run scripts/generate_offline_knowledge.dart
 ```
 
 ### Demo Mode

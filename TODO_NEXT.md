@@ -33,7 +33,7 @@ The inference architecture now supports Gemma 4 via three modes:
 // Remote mode (ready to use):
 INFERENCE_MODE=remote
 GEMMA_API_KEY=your_key
-GEMMA_MODEL=gemma-4-2b
+GEMMA_MODEL=gemma-4-31b-it
 
 // Local mode (needs model artifact):
 INFERENCE_MODE=local

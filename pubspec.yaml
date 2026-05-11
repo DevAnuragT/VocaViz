@@ -49,6 +49,9 @@ dependencies:
   path_provider: ^2.1.4
   shared_preferences: ^2.3.3
 
+  # Device capability checks
+  device_info_plus: ^12.3.0
+
   # Environment variables for API keys
   flutter_dotenv: ^5.1.0
 
@@ -82,6 +85,7 @@ flutter:
 
   assets:
     - assets/images/sample_pumps/
+    - assets/knowledge/
     - assets/models/
 
   # An image asset can refer to one or more resolution-specific "variants", see
